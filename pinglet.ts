@@ -1,11 +1,15 @@
 /**
  * pinglet - anonymous runtime usage pings for Node.js CLI tools.
  *
- * Privacy defaults:
- * - no install-time tracking
- * - no IP/hostname/username/file path collection in the client payload
- * - explicit opt-out via env vars and CLI flags
- * - first-run consent prompt in interactive terminals by default
+ * Consent flow:
+ * 1. When user runs "npm install <package>" and pinglet is a dependency,
+ *    postinstall.mjs runs and asks for consent with privacy levels (0-3).
+ * 2. Answer saved to ~/.config/pinglet/<package>.json
+ * 3. At runtime Pinglet reads that file -- no second question.
+ * 4. If no consent file exists (CI, non-interactive install) -> no tracking.
+ *
+ * Opt-out anytime:
+ *   PINGLET_OPT_OUT=1, DO_NOT_TRACK=1, --no-telemetry
  */
 
 import { createHash, randomBytes } from 'node:crypto';
@@ -14,7 +18,6 @@ import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { homedir, platform } from 'node:os';
 import { join } from 'node:path';
-import { createInterface } from 'node:readline';
 
 const PINGLET_VERSION = '0.1.0';
 const DEFAULT_TIMEOUT_MS = 1_500;
@@ -23,21 +26,19 @@ type TelemetryValue = string | number | boolean | null;
 export type TelemetryProperties = Record<string, TelemetryValue>;
 
 export interface PingletOptions {
-  /** Your package name, for example "my-cool-cli". */
+  /** Your package name, eg "my-cool-cli". */
   packageName: string;
-  /** Your package version, for example "2.1.0". */
+  /** Your package version, eg "1.0.0". */
   packageVersion: string;
   /** Endpoint URL that receives POST pings. */
   endpoint: string;
-  /** Ask for consent on first run in interactive terminals. Default: true. */
-  askConsent?: boolean;
-  /** Stable salt for the anonymous local client id. Keep consistent per project. */
+  /** Stable salt for anonymous local client id. */
   salt?: string;
-  /** Suppress all console output. Default: false. */
+  /** Suppress console output. Default false. */
   silent?: boolean;
-  /** Network timeout. Tracking never throws. Default: 1500ms. */
+  /** Network timeout. Default 1500ms. */
   timeoutMs?: number;
-  /** Optional write token for private/internal telemetry endpoints. Avoid for public OSS packages. */
+  /** Write token for private/internal endpoints. */
   ingestToken?: string;
   /** Non-PII properties included with every ping. */
   meta?: TelemetryProperties;
@@ -46,7 +47,12 @@ export interface PingletOptions {
 interface PingletState {
   optedOut: boolean;
   clientId: string;
-  consentAsked: boolean;
+}
+
+/** Shape written by postinstall.mjs */
+interface PostinstallState {
+  consent: boolean;
+  level: number;
 }
 
 function sanitizePackageName(packageName: string): string {
@@ -57,76 +63,90 @@ function getConfigDir(): string {
   return process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
 }
 
+function getPingletDir(): string {
+  return join(getConfigDir(), 'pinglet');
+}
+
 function getStateFilePath(packageName: string): string {
-  const dir = join(getConfigDir(), 'pinglet');
+  const dir = getPingletDir();
   mkdirSync(dir, { recursive: true });
-  return join(dir, `${sanitizePackageName(packageName).replace(/[\/]/g, '_')}.json`);
+  const safe = sanitizePackageName(packageName).replace(/[/]/g, '_');
+  return join(dir, `${safe}.json`);
+}
+
+function loadPostinstallState(packageName: string): PostinstallState | null {
+  const path = getStateFilePath(packageName);
+  if (!existsSync(path)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf-8')) as Partial<PostinstallState>;
+    if (typeof parsed.consent === 'boolean' && typeof parsed.level === 'number') {
+      return parsed as PostinstallState;
+    }
+  } catch {
+    // Ignore corrupt files.
+  }
+  return null;
 }
 
 function saveState(path: string, state: PingletState): void {
   try {
     writeFileSync(path, JSON.stringify(state, null, 2), 'utf-8');
   } catch {
-    // Telemetry must never break the host tool.
+    // Never break the host tool.
   }
 }
 
-function loadState(path: string, salt: string): PingletState {
-  if (existsSync(path)) {
-    try {
-      const parsed = JSON.parse(readFileSync(path, 'utf-8')) as Partial<PingletState>;
-      if (typeof parsed.clientId === 'string') {
-        return {
-          optedOut: parsed.optedOut === true,
-          clientId: parsed.clientId,
-          consentAsked: parsed.consentAsked === true,
-        };
+function loadOrCreateState(packageName: string, salt: string): PingletState {
+  const path = getStateFilePath(packageName);
+
+  // First check if there's an old-format state (from postinstall-less versions)
+  try {
+    if (existsSync(path)) {
+      const raw = readFileSync(path, 'utf-8');
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      // Postinstall format: has "consent" and "level"
+      if (typeof parsed.consent === 'boolean' && typeof parsed.level === 'number') {
+        // Already handled by postinstall — create or keep runtime-only state
+        // We need a separate runtime state for clientId
+        const runtimePath = getStateFilePath(`${packageName}:runtime`);
+        if (existsSync(runtimePath)) {
+          const rp = JSON.parse(readFileSync(runtimePath, 'utf-8')) as Partial<PingletState>;
+          if (typeof rp.clientId === 'string') {
+            return { optedOut: !parsed.consent || parsed.level === 0, clientId: rp.clientId };
+          }
+        }
+        // Create fresh runtime state
+        const rawId = randomBytes(32).toString('hex');
+        const clientId = createHash('sha256').update(`${rawId}:${salt}`).digest('hex').slice(0, 32);
+        const state: PingletState = { optedOut: !parsed.consent || parsed.level === 0, clientId };
+        writeFileSync(runtimePath, JSON.stringify(state, null, 2), 'utf-8');
+        return state;
       }
-    } catch {
-      // Fall through and create a fresh state.
+      // Old format: has "optedOut" and "clientId"
+      if (typeof parsed.clientId === 'string') {
+        return { optedOut: parsed.optedOut === true, clientId: parsed.clientId as string };
+      }
     }
+  } catch {
+    // Fall through
   }
 
-  // Anonymous stable local id. This is random, not derived from hardware/user data.
+  // No state at all -> create fresh, opted out by default
+  // (postinstall wasn't asked or ran in CI)
   const rawId = randomBytes(32).toString('hex');
   const clientId = createHash('sha256').update(`${rawId}:${salt}`).digest('hex').slice(0, 32);
-  const state: PingletState = { optedOut: false, clientId, consentAsked: false };
-  saveState(path, state);
+  const state: PingletState = { optedOut: true, clientId };
+  saveState(getStateFilePath(`${packageName}:runtime`), state);
   return state;
-}
-
-function envFlagIsEnabled(value: string | undefined): boolean {
-  if (!value) return false;
-  return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
 }
 
 function shouldOptOut(): boolean {
   return (
-    envFlagIsEnabled(process.env.PINGLET_OPT_OUT) ||
-    envFlagIsEnabled(process.env.DO_NOT_TRACK) ||
+    process.env.PINGLET_OPT_OUT === '1' ||
+    process.env.DO_NOT_TRACK === '1' ||
     process.argv.includes('--no-telemetry') ||
     process.argv.includes('--disable-telemetry')
   );
-}
-
-function isInteractive(): boolean {
-  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
-}
-
-async function askUserConsent(packageName: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const rl = createInterface({ input: process.stdin, output: process.stdout });
-    console.log('');
-    console.log(`  ${packageName} can send anonymous usage pings to help improve the tool.`);
-    console.log('  Collected: event name, package version, Node version, platform, CI flag.');
-    console.log('  Not collected: IP in payload, hostname, username, file paths, env vars, secrets.');
-    console.log('  Opt out anytime with PINGLET_OPT_OUT=1, DO_NOT_TRACK=1, or --no-telemetry.');
-    console.log('');
-    rl.question('  Allow anonymous telemetry? [Y/n] ', (answer) => {
-      rl.close();
-      resolve(answer.trim().toLowerCase() !== 'n');
-    });
-  });
 }
 
 function sanitizeProperties(input?: TelemetryProperties): TelemetryProperties | undefined {
@@ -136,22 +156,20 @@ function sanitizeProperties(input?: TelemetryProperties): TelemetryProperties | 
   for (const [rawKey, rawValue] of Object.entries(input).slice(0, 20)) {
     const key = rawKey.replace(/[^a-z0-9_.:-]/gi, '_').slice(0, 64);
     if (!key) continue;
-
     if (typeof rawValue === 'string') safe[key] = rawValue.slice(0, 128);
     else if (typeof rawValue === 'number' && Number.isFinite(rawValue)) safe[key] = rawValue;
     else if (typeof rawValue === 'boolean' || rawValue === null) safe[key] = rawValue;
   }
-
   return Object.keys(safe).length > 0 ? safe : undefined;
 }
 
 function buildPing(
-  opts: Required<Pick<PingletOptions, 'askConsent' | 'salt' | 'silent' | 'timeoutMs'>> & PingletOptions,
+  opts: Required<Pick<PingletOptions, 'salt' | 'silent' | 'timeoutMs'>> & PingletOptions,
   state: PingletState,
   event: string,
   properties?: TelemetryProperties,
 ): Record<string, unknown> {
-  return {
+  const payload: Record<string, unknown> = {
     sdk: 'pinglet',
     sdkVersion: PINGLET_VERSION,
     pkg: sanitizePackageName(opts.packageName),
@@ -163,23 +181,21 @@ function buildPing(
     ci: Boolean(process.env.CI || process.env.GITHUB_ACTIONS || process.env.CIRCLECI),
     properties: sanitizeProperties({ ...(opts.meta ?? {}), ...(properties ?? {}) }),
   };
+
+  return payload;
 }
 
 async function sendPing(endpoint: string, data: Record<string, unknown>, timeoutMs: number, ingestToken?: string): Promise<void> {
   let url: URL;
-  try {
-    url = new URL(endpoint);
-  } catch {
-    return;
-  }
+  try { url = new URL(endpoint); } catch { return; }
 
-  const request = url.protocol === 'https:' ? httpsRequest : url.protocol === 'http:' ? httpRequest : undefined;
-  if (!request) return;
+  const mod = url.protocol === 'https:' ? httpsRequest : url.protocol === 'http:' ? httpRequest : undefined;
+  if (!mod) return;
 
   const body = JSON.stringify(data);
 
   return new Promise((resolve) => {
-    const req = request(
+    const req = mod(
       {
         hostname: url.hostname,
         port: url.port || (url.protocol === 'https:' ? 443 : 80),
@@ -192,79 +208,45 @@ async function sendPing(endpoint: string, data: Record<string, unknown>, timeout
           ...(ingestToken ? { Authorization: `Bearer ${ingestToken}` } : {}),
         },
       },
-      (res) => {
-        res.resume();
-        res.on('end', resolve);
-      },
+      (res) => { res.resume(); res.on('end', resolve); },
     );
-
     req.on('socket', (socket) => socket.unref());
     req.on('error', () => resolve());
-    req.setTimeout(timeoutMs, () => {
-      req.destroy();
-      resolve();
-    });
+    req.setTimeout(timeoutMs, () => { req.destroy(); resolve(); });
     req.write(body);
     req.end();
   });
 }
 
 export class Pinglet {
-  private readonly opts: Required<Pick<PingletOptions, 'askConsent' | 'salt' | 'silent' | 'timeoutMs'>> & PingletOptions;
-  private readonly statePath: string;
+  private readonly opts: Required<Pick<PingletOptions, 'salt' | 'silent' | 'timeoutMs'>> & PingletOptions;
   private state: PingletState;
-  private initialized = false;
-  private blockedUntilConsent = false;
 
   constructor(opts: PingletOptions) {
     this.opts = {
-      askConsent: true,
       silent: false,
       salt: `${opts.packageName}:pinglet`,
       timeoutMs: DEFAULT_TIMEOUT_MS,
       ...opts,
     };
-    this.statePath = getStateFilePath(opts.packageName);
-    this.state = loadState(this.statePath, this.opts.salt);
+    this.state = loadOrCreateState(opts.packageName, this.opts.salt);
   }
 
-  /** Call once at startup. Safe to call multiple times. */
+  /** Call once at startup. No consent prompt — already handled at install time. */
   async init(): Promise<this> {
-    if (this.initialized) return this;
-    this.initialized = true;
-
-    if (this.opts.askConsent && !this.state.consentAsked) {
-      if (!isInteractive()) {
-        this.blockedUntilConsent = true;
-        return this;
-      }
-
-      const allowed = await askUserConsent(this.opts.packageName);
-      this.state.optedOut = !allowed;
-      this.state.consentAsked = true;
-      this.blockedUntilConsent = false;
-      saveState(this.statePath, this.state);
-
-      if (!this.opts.silent) {
-        console.log(allowed
-          ? '  Thanks. You can opt out anytime with --no-telemetry.\n'
-          : '  Telemetry disabled. No usage pings will be sent.\n');
-      }
-    }
-
+    // Init is kept for API compatibility.
+    // All state is read once at construction.
     return this;
   }
 
-  /** True if telemetry is disabled by config, env var, or CLI flag. */
+  /** True if telemetry is disabled by consent, env var, or CLI flag. */
   get isOptedOut(): boolean {
-    return this.blockedUntilConsent || this.state.optedOut || shouldOptOut();
+    return this.state.optedOut || shouldOptOut();
   }
 
   /** Send a named runtime event. Never throws. */
   async track(event: string, properties?: TelemetryProperties): Promise<void> {
-    if (!this.initialized) await this.init();
     if (this.isOptedOut) return;
-
     const ping = buildPing(this.opts, this.state, event, properties);
     await sendPing(this.opts.endpoint, ping, this.opts.timeoutMs, this.opts.ingestToken);
   }
@@ -272,18 +254,16 @@ export class Pinglet {
   /** Persistently disable telemetry for this user/package. */
   optOut(): void {
     this.state.optedOut = true;
-    this.state.consentAsked = true;
-    this.blockedUntilConsent = false;
-    saveState(this.statePath, this.state);
+    const path = getStateFilePath(this.opts.packageName);
+    saveState(path, this.state);
     if (!this.opts.silent) console.log(`[${this.opts.packageName}] Telemetry disabled.`);
   }
 
-  /** Persistently enable telemetry for this user/package. */
+  /** Re-enable telemetry. */
   optIn(): void {
     this.state.optedOut = false;
-    this.state.consentAsked = true;
-    this.blockedUntilConsent = false;
-    saveState(this.statePath, this.state);
+    const path = getStateFilePath(this.opts.packageName);
+    saveState(path, this.state);
     if (!this.opts.silent) console.log(`[${this.opts.packageName}] Telemetry enabled.`);
   }
 }

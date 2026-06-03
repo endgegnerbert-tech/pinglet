@@ -21,6 +21,7 @@
   },
   "files": [
     "dist",
+    "postinstall.mjs",
     "README.md",
     "LICENSE",
     "railway.json",
@@ -29,6 +30,7 @@
     "examples"
   ],
   "scripts": {
+    "postinstall": "node postinstall.mjs",
     "build": "tsc",
     "test": "npm run build && node --test test/*.test.js",
     "start": "npm run build && node dist/pinglet-server.js",
