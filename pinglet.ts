@@ -18,6 +18,7 @@ import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { homedir, platform } from 'node:os';
 import { join } from 'node:path';
+import { createInterface } from 'node:readline/promises';
 
 const PINGLET_VERSION = '0.1.0';
 const DEFAULT_TIMEOUT_MS = 1_500;
@@ -221,6 +222,8 @@ async function sendPing(endpoint: string, data: Record<string, unknown>, timeout
 export class Pinglet {
   private readonly opts: Required<Pick<PingletOptions, 'salt' | 'silent' | 'timeoutMs'>> & PingletOptions;
   private state: PingletState;
+  private consentNeverAsked: boolean;
+  private initCalled = false;
 
   constructor(opts: PingletOptions) {
     this.opts = {
@@ -229,13 +232,46 @@ export class Pinglet {
       timeoutMs: DEFAULT_TIMEOUT_MS,
       ...opts,
     };
+    this.consentNeverAsked = !existsSync(getStateFilePath(opts.packageName));
     this.state = loadOrCreateState(opts.packageName, this.opts.salt);
   }
 
-  /** Call once at startup. No consent prompt — already handled at install time. */
+  /**
+   * Call once at startup.
+   * If postinstall never ran (--ignore-scripts, non-interactive install),
+   * shows a fallback consent prompt once when TTY is available.
+   */
   async init(): Promise<this> {
-    // Init is kept for API compatibility.
-    // All state is read once at construction.
+    if (this.initCalled) return this;
+    this.initCalled = true;
+
+    // Fallback: postinstall never ran → ask once if we have a terminal
+    if (this.consentNeverAsked && this.state.optedOut && !this.opts.silent) {
+      if (process.stdin.isTTY && process.stdout.isTTY) {
+        const rl = createInterface({ input: process.stdin, output: process.stdout });
+        console.log('');
+        console.log(`  ${this.opts.packageName} can send anonymous usage pings.`);
+        console.log('  Choose level (0=off, 1=basic, 2=standard, 3=extended):');
+        const answer = await rl.question('  Level [0-3] (default 2): ');
+        rl.close();
+
+        const level = ['2', '0', '1', '3'].includes(answer.trim())
+          ? Number(answer.trim()) : 2;
+
+        const consentFile = getStateFilePath(this.opts.packageName);
+        writeFileSync(consentFile, JSON.stringify({
+          consent: level > 0,
+          level,
+        }), { encoding: 'utf-8', mode: 0o600 });
+
+        // Reload state with the new consent
+        this.state = loadOrCreateState(this.opts.packageName, this.opts.salt);
+        console.log(level > 0
+          ? '  Tracking enabled. Opt out anytime with --no-telemetry.\n'
+          : '  Telemetry disabled.\n');
+      }
+    }
+
     return this;
   }
 
