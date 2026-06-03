@@ -1,47 +1,60 @@
-# pinglet
+<p align="center">
+  <h1 align="center">📡 pinglet</h1>
+  <p align="center"><strong>Anonymous runtime analytics for npm packages.</strong><br>Real usage — not download noise.</p>
+</p>
 
-> Tiny anonymous runtime analytics for npm packages — real usage, not npm download noise.
+<p align="center">
+  <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="version">
+  <img src="https://img.shields.io/badge/tests-9%2F9-brightgreen" alt="tests">
+  <img src="https://img.shields.io/badge/dependencies-0-brightgreen" alt="deps">
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
+</p>
 
-`pinglet` helps package authors answer: **is my CLI actually being used?** It sends small runtime pings only when the tool runs. It does **not** run on `npm install`.
+---
 
-## Why
+## 🎯 The problem
 
-npm downloads include CI installs, mirrors, caches and bots. For npm packages, downloads are not the same as active usage. `pinglet` tracks runtime events like `run`, `command:build`, or `error:config` with privacy-first defaults.
+**npm download counts are useless** for understanding if anyone actually uses your package.
 
-## Privacy defaults
+They count CI installs. Mirror caches. Bots. `npm install` in pipelines that never execute your code. A package with 100k weekly downloads might have **zero** real users.
 
-| Collected | Not collected |
-| --- | --- |
-| Anonymous random client id | Hardware id, hostname, username |
-| Event name | File paths, source code, logs |
-| Package/version | Env vars, secrets, tokens |
-| Node version, platform | User generated content |
-| CI flag | IP address in client payload |
-| Server timestamp | Local timezone/client clock |
+**pinglet** tells you the truth: who's running your package, how often, and which parts.
 
-Important: the bundled server does not store IPs, but your hosting provider/proxy may log access IPs. Disable or anonymize access logs if you need stricter privacy.
+|  | npm downloads | pinglet |
+|---|---|---|
+| Someone actually ran my code? | ❌ | ✅ |
+| How many active anonymous users? | ❌ | ✅ |
+| Which commands/features? | ❌ | ✅ |
+| Which versions still active? | ❌ | ✅ |
+| CI or real person? | ❌ | ✅ |
+| macOS, Linux, Windows? | ❌ | ✅ |
 
-## What you can see
+---
 
-The built-in server returns aggregate stats like:
+## ⚡ Quick Start (3 steps)
 
-- total runtime pings
-- anonymous unique users
-- events/commands used
-- active package versions
-- platform split
-- CI vs local usage
-- pings per day
+### 1. Deploy your server
 
-See [`docs/maintainer-guide.md`](docs/maintainer-guide.md) for the full integration checklist and a README telemetry disclosure you can copy.
+**Railway** (easiest): push this repo → create project → add volume → done.  
+Full guide: [`docs/deploy-railway.md`](docs/deploy-railway.md).
 
-## Install
+**Docker**: `docker build -t pinglet . && docker run -p 3456:3456 -e PINGLET_ADMIN_PASSWORD=... pinglet`
+
+**Self-host**: `npx -p pinglet pinglet-server`
+
+### 2. Login once
+
+```bash
+npx pinglet login --url https://your-server.example.com --user admin
+```
+
+Stores a 30-day token — **not** your password.
+
+### 3. Add 5 lines to your package
 
 ```bash
 npm install pinglet
 ```
-
-## Client usage
 
 ```ts
 import { Pinglet } from 'pinglet';
@@ -49,180 +62,160 @@ import { Pinglet } from 'pinglet';
 const analytics = new Pinglet({
   packageName: 'my-package',
   packageVersion: '1.0.0',
-  endpoint: 'https://your-pinglet-server.example/ping',
+  endpoint: 'https://your-server.example.com/ping',
 });
 
-await analytics.init();
 await analytics.track('run');
-await analytics.track('command:build', { target: 'production' });
+await analytics.track('command:build');
 ```
 
-### Consent flow
+That's it. Your package now sends anonymous runtime pings.
 
-When a user runs `npm install <your-package>` **in an interactive terminal**, they see:
+---
 
-```
-  Choose telemetry level:
-    0 - No telemetry
-    1 - Basic (just the tool was run)
-    2 - Standard (run + which commands are used)  ← default
-    3 - Extended (run + commands + non-PII metadata)
-
-  Level [0-3] (default 2):
-```
-
-Only one question, answered once, saved to `~/.config/pinglet/<package>.json`.
-
-Prompts only appear in interactive terminals. CI installs never ask — no tracking.
-
-Your users can also opt out anytime:
+## 📊 What you see
 
 ```bash
-PINGLET_OPT_OUT=1
-DO_NOT_TRACK=1
---no-telemetry
+npx pinglet                   # quick overview
+npx pinglet my-package        # detailed stats
 ```
-
-Pinglet never asks during `npm install` in CI, never blocks the install, and never sends network requests at install time.
-
-## Self-hosted server
-
-Local:
-
-```bash
-npx -p pinglet pinglet-server
-```
-
-Production-style:
-
-```bash
-PORT=3456 \
-PINGLET_DATA_DIR=./telemetry-data \
-PINGLET_ADMIN_USER=admin \
-PINGLET_ADMIN_PASSWORD=change-this-long-random-password \
-npx -p pinglet pinglet-server
-```
-
-Endpoints:
-
-| Method | Path | Description |
-| --- | --- | --- |
-| `POST` | `/ping` | Receive a runtime event |
-| `POST` | `/auth/login` | Create a 30-day CLI admin token |
-| `GET` | `/auth/check` | Verify saved CLI login token |
-| `GET` | `/packages` | List tracked packages, admin auth if configured |
-| `GET` | `/stats?pkg=my-package` | Aggregated analytics, admin auth if configured |
-| `GET` | `/health` | Health check |
-
-### Deploy on Railway
-
-Short version:
-
-1. Push this repo to GitHub.
-2. Create a Railway project from the GitHub repo.
-3. Add a persistent volume mounted at `/data`.
-4. Set environment variables:
-
-```bash
-PINGLET_DATA_DIR=/data
-PINGLET_ADMIN_USER=admin
-PINGLET_ADMIN_PASSWORD=<long-random-password>
-```
-
-Railway will use `railway.json` and `npm start` to run the server.
-
-Full idiot-proof guide: [`docs/deploy-railway.md`](docs/deploy-railway.md).
-
-### Login once, then read analytics
-
-```bash
-npx pinglet login --url https://your-app.up.railway.app --user admin
-```
-
-Enter your admin password once. The CLI stores a 30-day admin token locally, not your password.
-
-Then use:
-
-```bash
-npx pinglet packages
-npx pinglet stats --pkg my-package
-```
-
-Generate copy-paste SDK code for your package:
-
-```bash
-npx pinglet snippet --pkg my-package --package-version 1.0.0
-```
-
-Example stats:
 
 ```json
 {
   "pkg": "my-package",
   "totalPings": 1420,
   "uniqueUsers": 312,
-  "events": { "run": 980, "command:build": 310 },
-  "versions": { "1.0.0": 1420 },
-  "platforms": { "darwin": 800, "linux": 620 },
-  "ci": { "true": 40, "false": 1380 },
-  "days": { "2026-06-03": 1420 }
+  "events":      { "run": 980, "command:build": 310 },
+  "versions":    { "1.4.0": 900, "1.3.0": 520 },
+  "platforms":   { "darwin": 800, "linux": 500, "win32": 120 },
+  "ci":          { "true": 40, "false": 1380 },
+  "days":        { "2026-06-03": 1420 }
 }
 ```
 
-You can also import the server:
+### CLI cheat sheet
 
-```ts
-import { startPingletServer } from 'pinglet/server';
-
-startPingletServer({ port: 3456, dataDir: './data' });
+```bash
+pinglet                         # status overview
+pinglet <pkg>                   # stats for package
+pinglet ls                      # list all tracked packages
+pinglet show <pkg>              # same as pinglet <pkg>
+pinglet snippet <pkg>           # print copy-paste SDK code
+pinglet health                  # server health check
+pinglet login --url <url>       # login once
+pinglet logout                  # remove local login
 ```
 
-## API
+---
+
+## 🛡️ Privacy
+
+| Collected | Not collected |
+|---|---|
+| Random hashed client id | Hardware id, hostname, username |
+| Event name | File paths, source code, logs |
+| Package name + version | Environment variables, secrets |
+| Node.js version | User-generated content |
+| Platform (darwin/linux/win32) | IP address |
+| CI flag | Client timezone |
+
+Full privacy model: [`docs/security.md`](docs/security.md).
+
+### Consent
+
+At **install time** (interactive terminals only), users see a level picker:
+
+```
+Level [0-3] (default 2):
+  0 — No telemetry
+  1 — Basic (just "run was executed")
+  2 — Standard (which commands are used) ← default
+  3 — Extended (+ non-PII metadata)
+```
+
+No question during CI installs. Opt out anytime: `PINGLET_OPT_OUT=1`, `DO_NOT_TRACK=1`, `--no-telemetry`.
+
+---
+
+## 🌐 Server endpoints
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/ping` | public | Receive a runtime event |
+| `POST` | `/auth/login` | Basic Auth | Create 30-day admin token |
+| `GET` | `/auth/check` | Bearer token | Verify saved login |
+| `GET` | `/packages` | admin | List tracked packages |
+| `GET` | `/stats?pkg=<name>` | admin | Aggregated analytics |
+| `GET` | `/health` | public | Health check |
+
+---
+
+## 📦 Deployment
+
+| Platform | Guide |
+|---|---|
+| **Railway** | [`docs/deploy-railway.md`](docs/deploy-railway.md) — step by step |
+| **Docker** | `docker build -t pinglet .` — single command |
+| **Fly.io** | `fly launch --dockerfile Dockerfile` |
+| **Self-host** | `npx -p pinglet pinglet-server` |
+| **Overview** | [`docs/deployment.md`](docs/deployment.md) — all options |
+
+All deployments need one env var: `PINGLET_ADMIN_PASSWORD`.
+
+---
+
+## 🔌 API
 
 ### `new Pinglet(options)`
 
 | Option | Required | Description |
-| --- | --- | --- |
-| `packageName` | yes | Your package name |
-| `packageVersion` | yes | Current version |
-| `endpoint` | yes | URL receiving `POST /ping` |
-| `salt` | no | Stable salt for anonymous local id |
-| `silent` | no | Suppress console output |
-| `timeoutMs` | no | Network timeout, default `1500` |
-| `ingestToken` | no | Optional write token for private/internal telemetry endpoints |
-| `meta` | no | Non-PII primitive properties on every event |
-
-Note: consent is handled at install time via `postinstall.mjs`. No `askConsent` option needed.
+|---|---|---|
+| `packageName` | ✅ | Your package name |
+| `packageVersion` | ✅ | Current version |
+| `endpoint` | ✅ | URL receiving `POST /ping` |
+| `salt` | — | Stable salt for anonymous client id |
+| `silent` | — | Suppress console output |
+| `timeoutMs` | — | Network timeout (default 1500ms) |
+| `ingestToken` | — | Write token for private endpoints |
+| `meta` | — | Non-PII properties on every event |
 
 ### Methods
 
-- `await pinglet.init()` — prepare client (no consent prompt, already handled at install).
-- `await pinglet.track(event, properties?)` — send event, never throws.
-- `pinglet.optOut()` — persistently disable telemetry.
-- `pinglet.optIn()` — persistently enable telemetry.
-- `pinglet.isOptedOut` — current opt-out state.
+```ts
+await analytics.init()         // prepare client
+await analytics.track('event') // send event — never throws
+analytics.optOut()             // persist disable
+analytics.optIn()              // re-enable
+analytics.isOptedOut           // current state
+```
 
-## Best-practice checklist for package authors
+---
 
-- Add a visible `Telemetry` section to your README.
-- Never track during `npm install` / postinstall.
-- Keep events low-cardinality: `command:build`, not full user input.
-- Do not send paths, project names, source code, logs, stack traces, tokens or free text.
-- Support `DO_NOT_TRACK=1` and a package-specific opt-out env var.
-- Keep telemetry failures silent and non-blocking.
+## 📄 Documentation
 
-## Documentation
+| Doc | Topic |
+|---|---|
+| [`deployment.md`](docs/deployment.md) | Deploy (Railway, Docker, Fly) |
+| [`deploy-railway.md`](docs/deploy-railway.md) | Railway guide |
+| [`security.md`](docs/security.md) | Privacy, GDPR, hardening |
+| [`maintainer-guide.md`](docs/maintainer-guide.md) | Add pinglet to your package |
+| [`agent-quickstart.md`](docs/agent-quickstart.md) | For AI agents |
+| [`market-research.md`](docs/market-research.md) | Why pinglet |
+| [`examples/basic-cli.mjs`](examples/basic-cli.mjs) | Working example |
 
-| Doc | For |
-| --- | --- |
-| [`docs/deployment.md`](docs/deployment.md) | Deploy server (Railway, Docker, Fly.io) |
-| [`docs/deploy-railway.md`](docs/deploy-railway.md) | Step-by-step Railway guide |
-| [`docs/security.md`](docs/security.md) | Privacy model, data collected, GDPR, hardening |
-| [`docs/maintainer-guide.md`](docs/maintainer-guide.md) | Add pinglet to your package (5 lines) |
-| [`docs/agent-quickstart.md`](docs/agent-quickstart.md) | Instructions for AI agents |
-| [`docs/market-research.md`](docs/market-research.md) | Why pinglet vs alternatives |
-| [`examples/basic-cli.mjs`](examples/basic-cli.mjs) | Minimal working example |
+---
 
-## License
+## ✅ Best practices
+
+- Add a visible `Telemetry` section to your README
+- Never track during `npm install` or postinstall
+- Events go low-cardinality: `command:build`, not raw input
+- Never track: paths, source code, logs, stack traces, secrets
+- Support `DO_NOT_TRACK=1` + `PINGLET_OPT_OUT` + `--no-telemetry`
+- Telemetry failures are always silent and non-blocking
+
+---
+
+## 📝 License
 
 MIT
