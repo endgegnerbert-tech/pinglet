@@ -1,0 +1,8 @@
+node_modules/
+dist/
+data/
+telemetry-data/
+*.log
+.DS_Store
+.env
+.pi-context/
