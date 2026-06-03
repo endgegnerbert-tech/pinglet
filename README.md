@@ -211,13 +211,17 @@ Note: consent is handled at install time via `postinstall.mjs`. No `askConsent` 
 - Support `DO_NOT_TRACK=1` and a package-specific opt-out env var.
 - Keep telemetry failures silent and non-blocking.
 
-More notes:
+## Documentation
 
-- [`docs/deploy-railway.md`](docs/deploy-railway.md) — step-by-step Railway deployment.
-- [`docs/agent-quickstart.md`](docs/agent-quickstart.md) — instructions for AI agents adding pinglet to another CLI.
-- [`docs/maintainer-guide.md`](docs/maintainer-guide.md) — what users need to do to add pinglet.
-- [`docs/market-research.md`](docs/market-research.md) — positioning and product research.
-- [`examples/basic-cli.mjs`](examples/basic-cli.mjs) — minimal CLI example.
+| Doc | For |
+| --- | --- |
+| [`docs/deployment.md`](docs/deployment.md) | Deploy server (Railway, Docker, Fly.io) |
+| [`docs/deploy-railway.md`](docs/deploy-railway.md) | Step-by-step Railway guide |
+| [`docs/security.md`](docs/security.md) | Privacy model, data collected, GDPR, hardening |
+| [`docs/maintainer-guide.md`](docs/maintainer-guide.md) | Add pinglet to your package (5 lines) |
+| [`docs/agent-quickstart.md`](docs/agent-quickstart.md) | Instructions for AI agents |
+| [`docs/market-research.md`](docs/market-research.md) | Why pinglet vs alternatives |
+| [`examples/basic-cli.mjs`](examples/basic-cli.mjs) | Minimal working example |
 
 ## License
 
