@@ -41,7 +41,7 @@ Full guide: [`docs/deploy-railway.md`](docs/deploy-railway.md).
 
 **Docker**: `docker build -t pinglet . && docker run -p 3456:3456 -e PINGLET_ADMIN_PASSWORD=... pinglet`
 
-**Self-host**: `npx -p pinglet pinglet-server`
+**Self-host**: `npx -p @black-knight.dev/pinglet pinglet-server`
 
 ### 2. Login once
 
@@ -54,11 +54,11 @@ Stores a 30-day token — **not** your password.
 ### 3. Add 5 lines to your package
 
 ```bash
-npm install pinglet
+npm install @black-knight.dev/pinglet
 ```
 
 ```ts
-import { Pinglet } from 'pinglet';
+import { Pinglet } from '@black-knight.dev/pinglet';
 
 const analytics = new Pinglet({
   packageName: 'my-package',
@@ -158,7 +158,7 @@ No question during CI installs. Opt out anytime: `PINGLET_OPT_OUT=1`, `DO_NOT_TR
 | **Railway** | [`docs/deploy-railway.md`](docs/deploy-railway.md) — step by step |
 | **Docker** | `docker build -t pinglet .` — single command |
 | **Fly.io** | `fly launch --dockerfile Dockerfile` |
-| **Self-host** | `npx -p pinglet pinglet-server` |
+| **Self-host** | `npx -p @black-knight.dev/pinglet pinglet-server` |
 | **Overview** | [`docs/deployment.md`](docs/deployment.md) — all options |
 
 All deployments need one env var: `PINGLET_ADMIN_PASSWORD`.

@@ -302,6 +302,7 @@ async function main(): Promise<void> {
         endpoint: `${saved.serverUrl}/ping`,
         silent: true,
         timeoutMs: 500,
+        _internal: true,
         meta: { app: 'pinglet-cli' },
       }).track(`cli:${opts.command || 'default'}`);
     }).catch(() => {});

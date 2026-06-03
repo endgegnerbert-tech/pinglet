@@ -410,6 +410,7 @@ export function startPingletServer(options: PingletServerOptions = {}) {
         endpoint: `http://127.0.0.1:${port}/ping`,
         silent: true,
         timeoutMs: 500,
+        _internal: true,
         meta: { app: 'pinglet-server' },
       }).track('server:start');
     }).catch(() => {});

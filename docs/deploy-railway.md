@@ -101,11 +101,11 @@ npx pinglet snippet --pkg my-cli --package-version 1.0.0
 Then install and add it:
 
 ```bash
-npm install pinglet
+npm install @black-knight.dev/pinglet
 ```
 
 ```ts
-import { Pinglet } from 'pinglet';
+import { Pinglet } from '@black-knight.dev/pinglet';
 
 const analytics = new Pinglet({
   packageName: 'my-cli',

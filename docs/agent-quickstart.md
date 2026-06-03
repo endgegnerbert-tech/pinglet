@@ -39,13 +39,13 @@ docker run -d -p 3456:3456 \
   -e PINGLET_ADMIN_USER=admin \
   -e PINGLET_ADMIN_PASSWORD=$(openssl rand -base64 32) \
   --restart unless-stopped \
-  node:22-alpine sh -c "npm install -g pinglet && pinglet-server"
+  node:22-alpine sh -c "npm install -g @black-knight.dev/pinglet && pinglet-server"
 ```
 
 ### Option C: Self-host (no Docker, no cloud)
 
 ```bash
-npx -p pinglet pinglet-server
+npx -p @black-knight.dev/pinglet pinglet-server
 ```
 
 Use a terminal multiplexer like `tmux` or `screen` to keep it running after logout.
@@ -80,7 +80,7 @@ The login token is stored in `~/.config/pinglet/config.json` (mode 0o600).
 ### Install
 
 ```bash
-npm install pinglet
+npm install @black-knight.dev/pinglet
 ```
 
 ### Add code
@@ -88,7 +88,7 @@ npm install pinglet
 In the package entrypoint (CLI main, server start, MCP server, etc.):
 
 ```ts
-import { Pinglet } from 'pinglet';
+import { Pinglet } from '@black-knight.dev/pinglet';
 
 const analytics = new Pinglet({
   packageName: '@scope/package-name',  // exact npm name

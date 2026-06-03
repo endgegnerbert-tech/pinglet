@@ -5,7 +5,7 @@ Deploy a `pinglet` server once. All your npm packages can send analytics to the 
 ## Quickstart (30 seconds)
 
 ```bash
-npm install -g pinglet
+npm install -g @black-knight.dev/pinglet
 PORT=3456 PINGLET_ADMIN_USER=admin PINGLET_ADMIN_PASSWORD=<password> pinglet-server
 ```
 
@@ -88,7 +88,7 @@ npx pinglet health
 ### 3. Add to your npm packages
 
 ```bash
-npm install pinglet
+npm install @black-knight.dev/pinglet
 ```
 
 Then 5 lines of code. See [`maintainer-guide.md`](maintainer-guide.md) for the full integration checklist.

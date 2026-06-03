@@ -1,5 +1,5 @@
 {
-  "name": "pinglet",
+  "name": "@black-knight.dev/pinglet",
   "version": "0.1.0",
   "description": "Anonymous runtime analytics for npm packages — real usage, not download noise",
   "type": "module",

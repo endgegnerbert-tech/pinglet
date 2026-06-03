@@ -49,7 +49,7 @@ This is enough to answer:
 For local testing:
 
 ```bash
-npx -p pinglet pinglet-server
+npx -p @black-knight.dev/pinglet pinglet-server
 ```
 
 For deployment:
@@ -59,7 +59,7 @@ PORT=3456 \
 PINGLET_DATA_DIR=/var/lib/pinglet \
 PINGLET_ADMIN_USER=admin \
 PINGLET_ADMIN_PASSWORD=change-this-long-random-password \
-npx -p pinglet pinglet-server
+npx -p @black-knight.dev/pinglet pinglet-server
 ```
 
 `POST /ping` is public by default so open-source packages can send runtime pings without shipping a secret in the npm package. `GET /stats` and `GET /packages` are protected when `PINGLET_ADMIN_PASSWORD` is set.
@@ -69,11 +69,11 @@ Optional: set `PINGLET_INGEST_TOKEN` only for private/internal tools. Do not put
 ## 2. Add the SDK to your CLI
 
 ```bash
-npm install pinglet
+npm install @black-knight.dev/pinglet
 ```
 
 ```ts
-import { Pinglet } from 'pinglet';
+import { Pinglet } from '@black-knight.dev/pinglet';
 
 const analytics = new Pinglet({
   packageName: 'my-cli',

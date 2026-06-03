@@ -43,6 +43,8 @@ export interface PingletOptions {
   ingestToken?: string;
   /** Non-PII properties included with every ping. */
   meta?: TelemetryProperties;
+  /** Internal: skip consent check (for self-analytics). Do not expose to package authors. */
+  _internal?: boolean;
 }
 
 interface PingletState {
@@ -233,6 +235,12 @@ export class Pinglet {
       timeoutMs: DEFAULT_TIMEOUT_MS,
       ...opts,
     };
+    // Internal use (server/CLI self-analytics): skip consent check
+    if (opts._internal) {
+      this.state = { optedOut: false, clientId: 'internal' };
+      this.consentNeverAsked = false;
+      return;
+    }
     this.consentNeverAsked = !existsSync(getStateFilePath(opts.packageName));
     this.state = loadOrCreateState(opts.packageName, this.opts.salt);
   }

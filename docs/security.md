@@ -112,7 +112,7 @@ PORT=3456 \
 PINGLET_DATA_DIR=/var/lib/pinglet \
 PINGLET_ADMIN_USER=admin \
 PINGLET_ADMIN_PASSWORD=<password> \
-npx -p pinglet pinglet-server
+npx -p @black-knight.dev/pinglet pinglet-server
 ```
 
 Behind nginx or Caddy for TLS termination.
