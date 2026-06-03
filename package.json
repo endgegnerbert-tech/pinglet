@@ -16,8 +16,8 @@
     }
   },
   "bin": {
-    "pinglet": "./dist/pinglet-cli.js",
-    "pinglet-server": "./dist/pinglet-server.js"
+    "pinglet": "dist/pinglet-cli.js",
+    "pinglet-server": "dist/pinglet-server.js"
   },
   "files": [
     "dist",
