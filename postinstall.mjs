@@ -75,11 +75,11 @@ async function askConsent(packageName) {
   const answer = await rl.question(
     "  Choose telemetry level:\n" +
     "    0 - No telemetry\n" +
-    "    1 - Basic (just the tool was run)\n" +
-    "    2 - Standard (run + which commands are used)  ← default\n" +
+    "    1 - Basic (just the tool was run)  ← default\n" +
+    "    2 - Standard (run + which commands are used)\n" +
     "    3 - Extended (run + commands + non-PII metadata)\n" +
     "  \n" +
-    "  Level [0-3] (default 2): "
+    "  Level [0-3] (default 1): "
   );
   rl.close();
 
@@ -88,7 +88,7 @@ async function askConsent(packageName) {
   if (trimmed === "3") return { consent: true, level: 3 };
   if (trimmed === "1") return { consent: true, level: 1 };
 
-  return { consent: true, level: 2 }; // default
+  return { consent: true, level: 1 }; // default
 }
 
 /**

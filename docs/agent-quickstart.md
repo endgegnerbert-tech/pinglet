@@ -156,10 +156,10 @@ Analytics available:
 When a user runs `npm install` of the package in an interactive terminal, a postinstall script asks:
 
 ```
-Level [0-3] (default 2):
+Level [0-3] (default 1):
   0 — No telemetry
-  1 — Basic: just "the tool was run"
-  2 — Standard: run + which commands  ← default
+  1 — Basic: just "the tool was run"  ← default
+  2 — Standard: run + which commands
   3 — Extended: + non-PII metadata
 ```
 

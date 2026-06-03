@@ -38,7 +38,7 @@ test('client sends anonymous runtime ping without PII fields', async () => {
   const configHome = await mkdtemp(join(tmpdir(), 'pinglet-test-'));
   const origXdg = process.env.XDG_CONFIG_HOME;
   process.env.XDG_CONFIG_HOME = configHome;
-  await writeConsent(configHome, 'example-cli');
+  await writeConsent(configHome, 'example-cli', true, 3);
 
   const received = [];
   const server = createPingletServer({ dataDir: join(configHome, 'data'), silent: true });
@@ -98,6 +98,92 @@ test('without consent file, tracking is disabled by default', async () => {
   await close(server);
 
   assert.equal(received.length, 0, 'Should not send pings without consent');
+});
+
+test('level 1 tracks only run events', async () => {
+  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-level1-'));
+  const origXdg = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = configHome;
+  await writeConsent(configHome, 'basic-cli', true, 1);
+
+  const received = [];
+  const server = createPingletServer({ dataDir: join(configHome, 'data'), silent: true });
+  const port = await listen(server);
+
+  server.removeAllListeners('request');
+  server.on('request', (req, res) => {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => { received.push(JSON.parse(body)); res.writeHead(200); res.end('{}'); });
+  });
+
+  const endpoint = `http://127.0.0.1:${port}/ping`;
+  const pinglet = new Pinglet({ packageName: 'basic-cli', packageVersion: '1.0.0', endpoint, silent: true });
+  await pinglet.track('run');
+  await pinglet.track('command:build', { target: 'prod' });
+
+  await close(server);
+  if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
+
+  assert.equal(received.length, 1);
+  assert.equal(received[0].event, 'run');
+});
+
+test('level 2 strips properties but keeps event names', async () => {
+  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-level2-'));
+  const origXdg = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = configHome;
+  await writeConsent(configHome, 'standard-cli', true, 2);
+
+  const received = [];
+  const server = createPingletServer({ dataDir: join(configHome, 'data'), silent: true });
+  const port = await listen(server);
+
+  server.removeAllListeners('request');
+  server.on('request', (req, res) => {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => { received.push(JSON.parse(body)); res.writeHead(200); res.end('{}'); });
+  });
+
+  const endpoint = `http://127.0.0.1:${port}/ping`;
+  await new Pinglet({ packageName: 'standard-cli', packageVersion: '1.0.0', endpoint, silent: true }).track('command:build', { target: 'prod' });
+
+  await close(server);
+  if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
+
+  assert.equal(received.length, 1);
+  assert.equal(received[0].event, 'command:build');
+  assert.equal(received[0].properties, undefined);
+});
+
+test('internal telemetry bypass keeps anonymous stable client id', async () => {
+  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-internal-'));
+  const origXdg = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = configHome;
+
+  const received = [];
+  const server = createPingletServer({ dataDir: join(configHome, 'data'), silent: true });
+  const port = await listen(server);
+
+  server.removeAllListeners('request');
+  server.on('request', (req, res) => {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => { received.push(JSON.parse(body)); res.writeHead(200); res.end('{}'); });
+  });
+
+  const endpoint = `http://127.0.0.1:${port}/ping`;
+  await new Pinglet({ packageName: 'internal-cli', packageVersion: '1.0.0', endpoint, silent: true, _internal: true }).track('run');
+  await new Pinglet({ packageName: 'internal-cli', packageVersion: '1.0.0', endpoint, silent: true, _internal: true }).track('tool:success');
+
+  await close(server);
+  if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
+
+  assert.equal(received.length, 1);
+  assert.ok(received[0].clientId);
+  assert.notEqual(received[0].clientId, 'internal');
+  assert.equal(received[0].event, 'run');
 });
 
 test('server preserves scoped package names with dots in stats', async () => {

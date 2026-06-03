@@ -71,7 +71,7 @@ curl https://your-app.up.railway.app/health
 Expected:
 
 ```json
-{"ok":true,"version":"0.1.0"}
+{"ok":true,"version":"0.1.3"}
 ```
 
 ## 6. Login once from your machine

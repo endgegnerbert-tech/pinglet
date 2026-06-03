@@ -40,8 +40,8 @@ Choose from levels:
 | Level | What | Example events |
 | --- | --- | --- |
 | 0 | Off — no telemetry | — |
-| 1 | Basic | `run` only |
-| 2 | Standard (default) | `run`, `command:build` |
+| 1 | Basic (default) | `run` only |
+| 2 | Standard | `run`, `command:build` |
 | 3 | Extended | + non-PII metadata like `mode` |
 
 ## Anonymous client id

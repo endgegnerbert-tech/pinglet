@@ -5,7 +5,7 @@
 <p align="center"><strong>Anonymous runtime analytics for npm packages.</strong><br>Real usage — not download noise.</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="version">
+  <img src="https://img.shields.io/badge/version-0.1.3-blue" alt="version">
   <img src="https://img.shields.io/badge/tests-9%2F9-brightgreen" alt="tests">
   <img src="https://img.shields.io/badge/dependencies-0-brightgreen" alt="deps">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
@@ -127,10 +127,10 @@ Full privacy model: [`docs/security.md`](docs/security.md).
 At **install time** (interactive terminals only), users see a level picker:
 
 ```
-Level [0-3] (default 2):
+Level [0-3] (default 1):
   0 — No telemetry
-  1 — Basic (just "run was executed")
-  2 — Standard (which commands are used) ← default
+  1 — Basic (just "run was executed") ← default
+  2 — Standard (which commands are used)
   3 — Extended (+ non-PII metadata)
 ```
 

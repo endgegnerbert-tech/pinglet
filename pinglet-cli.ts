@@ -298,13 +298,13 @@ async function main(): Promise<void> {
     import('./pinglet.js').then(({ Pinglet }) => {
       new Pinglet({
         packageName: 'pinglet-cli',
-        packageVersion: '0.1.0',
+        packageVersion: '0.1.3',
         endpoint: `${saved.serverUrl}/ping`,
         silent: true,
         timeoutMs: 500,
         _internal: true,
         meta: { app: 'pinglet-cli' },
-      }).track(`cli:${opts.command || 'default'}`);
+      }).track('run');
     }).catch(() => {});
   }
 

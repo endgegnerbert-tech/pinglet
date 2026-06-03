@@ -386,7 +386,7 @@ export function createPingletServer(options: PingletServerOptions = {}) {
     }
 
     if (req.method === 'GET' && url.pathname === '/health') {
-      sendJson(res, 200, { ok: true, version: '0.1.0' });
+      sendJson(res, 200, { ok: true, version: '0.1.3' });
       return;
     }
 
@@ -406,13 +406,13 @@ export function startPingletServer(options: PingletServerOptions = {}) {
     import('./pinglet.js').then(({ Pinglet }) => {
       new Pinglet({
         packageName: 'pinglet-server',
-        packageVersion: '0.1.0',
+        packageVersion: '0.1.3',
         endpoint: `http://127.0.0.1:${port}/ping`,
         silent: true,
         timeoutMs: 500,
         _internal: true,
         meta: { app: 'pinglet-server' },
-      }).track('server:start');
+      }).track('run');
     }).catch(() => {});
 
     if (options.silent) return;
