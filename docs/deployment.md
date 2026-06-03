@@ -15,7 +15,7 @@ But this server dies when your terminal closes. For production, use one of the o
 
 ---
 
-## Railway (recommended — free / $5 tier)
+## Railway — Nixpacks (recommended — free / $5 tier)
 
 Idiot-proof, one-click, persistent. Full guide: [`deploy-railway.md`](deploy-railway.md)
 

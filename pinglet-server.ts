@@ -402,6 +402,18 @@ export function startPingletServer(options: PingletServerOptions = {}) {
   const server = createPingletServer({ ...options, dataDir });
 
   server.listen(port, () => {
+    // Self-analytics: fire-and-forget, never blocks server startup
+    import('./pinglet.js').then(({ Pinglet }) => {
+      new Pinglet({
+        packageName: 'pinglet-server',
+        packageVersion: '0.1.0',
+        endpoint: `http://127.0.0.1:${port}/ping`,
+        silent: true,
+        timeoutMs: 500,
+        meta: { app: 'pinglet-server' },
+      }).track('server:start');
+    }).catch(() => {});
+
     if (options.silent) return;
     console.log(`pinglet-server running on http://localhost:${port}`);
     console.log('POST /ping              receive telemetry events');

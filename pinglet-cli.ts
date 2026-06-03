@@ -292,6 +292,21 @@ async function main(): Promise<void> {
   // No args → status overview
   if (args.length === 0) { await printStatus(opts); return; }
 
+  // Self-analytics: track CLI usage (fire-and-forget, never blocks)
+  const saved = loadConfig();
+  if (saved) {
+    import('./pinglet.js').then(({ Pinglet }) => {
+      new Pinglet({
+        packageName: 'pinglet-cli',
+        packageVersion: '0.1.0',
+        endpoint: `${saved.serverUrl}/ping`,
+        silent: true,
+        timeoutMs: 500,
+        meta: { app: 'pinglet-cli' },
+      }).track(`cli:${opts.command || 'default'}`);
+    }).catch(() => {});
+  }
+
   // Route commands
   switch (opts.command) {
     case 'login': return await login(opts);

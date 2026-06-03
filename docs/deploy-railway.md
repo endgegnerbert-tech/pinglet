@@ -7,6 +7,10 @@ This is the simple production path:
 3. run `pinglet login` once from your laptop
 4. read analytics with `pinglet packages` and `pinglet stats --pkg <name>`
 
+## How it works
+
+Railway uses **Nixpacks** — automatic build detection. No Dockerfile needed. Nixpacks reads `railway.json`, installs Node, runs `npm ci && npm start`, and deploys. A persistent volume at `/data` keeps your analytics across redeploys.
+
 ## 1. Prepare the repo
 
 Push this project to GitHub.
