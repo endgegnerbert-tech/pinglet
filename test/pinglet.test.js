@@ -64,7 +64,7 @@ test('client sends anonymous runtime ping without PII fields', async () => {
 
   await pinglet.track('command:build', { target: 'prod' });
   await close(server);
-  process.env.XDG_CONFIG_HOME = origXdg;
+  if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
 
   assert.equal(received.length, 1);
   assert.equal(received[0].pkg, 'example-cli');
@@ -259,7 +259,7 @@ test('postinstall consent file is correctly detected by Pinglet', async () => {
   });
 
   assert.equal(pinglet.isOptedOut, false, 'With consent=true and level>=1, tracking should be allowed');
-  process.env.XDG_CONFIG_HOME = origXdg;
+  if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
 });
 
 test('postinstall consent level 0 disables tracking', async () => {
@@ -277,7 +277,7 @@ test('postinstall consent level 0 disables tracking', async () => {
   });
 
   assert.equal(pinglet.isOptedOut, true, 'Level 0 should disable tracking');
-  process.env.XDG_CONFIG_HOME = origXdg;
+  if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
 });
 
 test('postinstall consent=false disables tracking', async () => {
@@ -294,5 +294,5 @@ test('postinstall consent=false disables tracking', async () => {
   });
 
   assert.equal(pinglet.isOptedOut, true, 'consent=false should disable tracking');
-  process.env.XDG_CONFIG_HOME = origXdg;
+  if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
 });

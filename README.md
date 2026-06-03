@@ -57,29 +57,33 @@ await analytics.track('run');
 await analytics.track('command:build', { target: 'production' });
 ```
 
-### Consent and opt-out
+### Consent flow
 
-By default, `pinglet` asks once in interactive terminals. In non-interactive terminals it does not send until consent can be asked. If your app has its own consent/privacy notice, you can disable the built-in prompt:
+When a user runs `npm install <your-package>` **in an interactive terminal**, they see:
 
-```ts
-new Pinglet({
-  packageName: 'my-cli',
-  packageVersion: '1.0.0',
-  endpoint: 'https://example.com/ping',
-  askConsent: false,
-});
+```
+  Choose telemetry level:
+    0 - No telemetry
+    1 - Basic (just the tool was run)
+    2 - Standard (run + which commands are used)  ← default
+    3 - Extended (run + commands + non-PII metadata)
+
+  Level [0-3] (default 2):
 ```
 
-Users can always opt out:
+Only one question, answered once, saved to `~/.config/pinglet/<package>.json`.
+
+Prompts only appear in interactive terminals. CI installs never ask — no tracking.
+
+Your users can also opt out anytime:
 
 ```bash
-PINGLET_OPT_OUT=1 my-cli
-DO_NOT_TRACK=1 my-cli
-my-cli --no-telemetry
-my-cli --disable-telemetry
+PINGLET_OPT_OUT=1
+DO_NOT_TRACK=1
+--no-telemetry
 ```
 
-Persistent local state is stored under `~/.config/pinglet/` or `$XDG_CONFIG_HOME/pinglet/`.
+Pinglet never asks during `npm install` in CI, never blocks the install, and never sends network requests at install time.
 
 ## Self-hosted server
 
@@ -182,16 +186,17 @@ startPingletServer({ port: 3456, dataDir: './data' });
 | `packageName` | yes | Your package name |
 | `packageVersion` | yes | Current version |
 | `endpoint` | yes | URL receiving `POST /ping` |
-| `askConsent` | no | Built-in first-run prompt, default `true` |
 | `salt` | no | Stable salt for anonymous local id |
 | `silent` | no | Suppress console output |
 | `timeoutMs` | no | Network timeout, default `1500` |
 | `ingestToken` | no | Optional write token for private/internal telemetry endpoints |
 | `meta` | no | Non-PII primitive properties on every event |
 
+Note: consent is handled at install time via `postinstall.mjs`. No `askConsent` option needed.
+
 ### Methods
 
-- `await pinglet.init()` — handle consent once.
+- `await pinglet.init()` — prepare client (no consent prompt, already handled at install).
 - `await pinglet.track(event, properties?)` — send event, never throws.
 - `pinglet.optOut()` — persistently disable telemetry.
 - `pinglet.optIn()` — persistently enable telemetry.
