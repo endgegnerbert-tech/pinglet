@@ -27,37 +27,31 @@ interface CliOptions {
   json: boolean;
 }
 
+const COMMANDS = new Set(['login', 'logout', 'status', 'ls', 'packages', 'show', 'stats', 'snippet', 'health']);
+
 function usage(): string {
-  return `pinglet - login once, then read analytics from your pinglet server
+  return `pinglet — anonymous runtime analytics for npm packages
 
-First time:
-  pinglet login --url https://your-app.up.railway.app --user admin
+  pinglet                            Quick status overview
+  pinglet login --url <url>          Login once (token saved, not password)
+  pinglet logout                     Remove local login
+  pinglet health                     Check server health + version
 
-After login:
-  pinglet packages
-  pinglet stats --pkg my-cli
+  pinglet ls                         List tracked packages
+  pinglet <pkg>                      Show analytics for a package (shortcut)
+  pinglet show <pkg>                 Same as pinglet <pkg>
+  pinglet stats --pkg <pkg>          Same as above (explicit)
 
-Commands:
-  login              Login once and store a local admin token (not your password)
-  logout             Remove local login token
-  status             Check if the saved login still works
-  packages           List tracked packages
-  stats --pkg <name> Show package analytics
-  snippet --pkg <n>  Print copy-paste SDK code for your CLI package
+  pinglet snippet <pkg>              Print copy-paste SDK code
+  pinglet snippet --pkg <pkg> --package-version 1.0.0
 
 Options:
-  --url <url>         Server URL, e.g. https://app.up.railway.app
-  --pkg <name>        Package name for stats/snippet
-  --package-version <version> Package version for snippet, default 1.0.0
-  --user <user>       Admin username, default admin
-  --password <pass>   Admin password (only for login; otherwise prompted)
-  --json              Print raw JSON
-  --help              Show help
+  --url <url>         Server URL
+  --user <user>       Admin username (default: admin)
+  --password <pass>   Admin password (login only; prepend with space to hide from history)
+  --json              Raw JSON output
 
-Env alternatives:
-  PINGLET_SERVER_URL
-  PINGLET_ADMIN_USER
-  PINGLET_ADMIN_PASSWORD
+Env: PINGLET_SERVER_URL PINGLET_ADMIN_USER
 `;
 }
 
@@ -68,10 +62,11 @@ function readArg(args: string[], name: string): string | undefined {
 }
 
 function parseArgs(args: string[]): CliOptions {
+  const cmd = args[0]?.startsWith('-') ? undefined : args[0];
   return {
-    command: args.find((arg) => !arg.startsWith('-')),
+    command: cmd,
     url: readArg(args, '--url') ?? process.env.PINGLET_SERVER_URL,
-    pkg: readArg(args, '--pkg') ?? process.env.PINGLET_PACKAGE,
+    pkg: readArg(args, '--pkg') ?? process.env.PINGLET_PACKAGE ?? (cmd && !COMMANDS.has(cmd) ? cmd : undefined),
     packageVersion: readArg(args, '--package-version') ?? process.env.PINGLET_PACKAGE_VERSION,
     user: readArg(args, '--user') ?? process.env.PINGLET_ADMIN_USER ?? 'admin',
     password: readArg(args, '--password') ?? process.env.PINGLET_ADMIN_PASSWORD,
@@ -82,41 +77,31 @@ function parseArgs(args: string[]): CliOptions {
 function getConfigDir(): string {
   return process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
 }
-
-function getPingletDir(): string {
-  return join(getConfigDir(), 'pinglet');
-}
-
-function getConfigPath(): string {
-  return join(getPingletDir(), 'config.json');
-}
+function getPingletDir(): string { return join(getConfigDir(), 'pinglet'); }
+function getConfigPath(): string { return join(getPingletDir(), 'config.json'); }
 
 function normalizeUrl(url: string): string {
-  const parsed = new URL(url);
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  parsed.search = '';
-  parsed.hash = '';
-  return parsed.toString().replace(/\/$/, '');
+  try {
+    const parsed = new URL(url);
+    parsed.pathname = parsed.pathname.replace(/\/$/, '');
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return url;
+  }
 }
 
 function loadConfig(): PingletConfig | undefined {
   const path = getConfigPath();
   if (!existsSync(path)) return undefined;
-
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf-8')) as Partial<PingletConfig>;
-    if (
-      typeof parsed.serverUrl === 'string' &&
-      typeof parsed.adminUser === 'string' &&
-      typeof parsed.token === 'string' &&
-      typeof parsed.tokenExpiresAt === 'string'
-    ) {
+    if (typeof parsed.serverUrl === 'string' && typeof parsed.adminUser === 'string' &&
+        typeof parsed.token === 'string' && typeof parsed.tokenExpiresAt === 'string') {
       return parsed as PingletConfig;
     }
-  } catch {
-    return undefined;
-  }
-
+  } catch { /* ignore */ }
   return undefined;
 }
 
@@ -141,54 +126,26 @@ async function promptText(question: string, defaultValue?: string): Promise<stri
 
 async function promptPassword(question: string): Promise<string> {
   if (!process.stdin.isTTY) return promptText(question);
-
   return new Promise((resolve, reject) => {
     let value = '';
     const stdin = process.stdin;
-
-    function cleanup(): void {
-      stdin.setRawMode(false);
-      stdin.pause();
-      stdin.off('data', onData);
-    }
-
+    function cleanup(): void { stdin.setRawMode(false); stdin.pause(); stdin.off('data', onData); }
     function onData(buffer: Buffer): void {
       const text = buffer.toString('utf-8');
       for (const char of text) {
-        if (char === '\u0003') {
-          cleanup();
-          process.stdout.write('\n');
-          reject(new Error('Cancelled'));
-          return;
-        }
-        if (char === '\r' || char === '\n') {
-          cleanup();
-          process.stdout.write('\n');
-          resolve(value);
-          return;
-        }
-        if (char === '\u007f') {
-          value = value.slice(0, -1);
-          continue;
-        }
+        if (char === '\x03') { cleanup(); process.stdout.write('\n'); reject(new Error('Cancelled')); return; }
+        if (char === '\r' || char === '\n') { cleanup(); process.stdout.write('\n'); resolve(value); return; }
+        if (char === '\x7f') { value = value.slice(0, -1); continue; }
         value += char;
       }
     }
-
     process.stdout.write(`${question}: `);
-    stdin.setRawMode(true);
-    stdin.resume();
-    stdin.on('data', onData);
+    stdin.setRawMode(true); stdin.resume(); stdin.on('data', onData);
   });
 }
 
 function requireOption(value: string | undefined, message: string): string {
-  if (!value) {
-    console.error(message);
-    console.error('');
-    console.error(usage());
-    process.exit(1);
-  }
+  if (!value) { console.error(message); process.exit(1); }
   return value;
 }
 
@@ -198,17 +155,13 @@ function basicAuth(user: string, password: string): string {
 
 function getSavedAuth(opts: CliOptions): { serverUrl: string; headers: Record<string, string> } {
   const config = loadConfig();
-  const serverUrl = requireOption(opts.url ?? config?.serverUrl, 'Missing server URL. Run: pinglet login --url <server-url>');
+  const serverUrl = requireOption(opts.url ?? config?.serverUrl, 'Not logged in. Run: pinglet login --url <url>');
 
   if (opts.password) {
     return { serverUrl: normalizeUrl(serverUrl), headers: { Authorization: basicAuth(opts.user, opts.password) } };
   }
 
-  if (!config?.token) {
-    console.error('Not logged in. Run: pinglet login --url <server-url>');
-    process.exit(1);
-  }
-
+  if (!config?.token) { console.error('Not logged in. Run: pinglet login --url <url>'); process.exit(1); }
   if (Date.parse(config.tokenExpiresAt) <= Date.now()) {
     console.error('Saved login expired. Run: pinglet login');
     process.exit(1);
@@ -220,10 +173,9 @@ function getSavedAuth(opts: CliOptions): { serverUrl: string; headers: Record<st
 async function fetchJson(path: string, opts: CliOptions): Promise<JsonObject> {
   const auth = getSavedAuth(opts);
   const url = new URL(path, `${auth.serverUrl}/`);
-
   const response = await fetch(url, { headers: auth.headers });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}: ${JSON.stringify(body)}`);
+  if (!response.ok) throw new Error(`${response.status}: ${JSON.stringify(body)}`);
   return body as JsonObject;
 }
 
@@ -233,22 +185,20 @@ async function login(opts: CliOptions): Promise<void> {
   const serverUrl = normalizeUrl(requireOption(rawUrl, 'Missing server URL'));
   const user = opts.user || await promptText('Admin user', existing?.adminUser ?? 'admin');
   const password = opts.password ?? await promptPassword('Admin password');
-
   if (!password) throw new Error('Missing admin password');
 
   const response = await fetch(new URL('/auth/login', `${serverUrl}/`), {
-    method: 'POST',
-    headers: { Authorization: basicAuth(user, password) },
+    method: 'POST', headers: { Authorization: basicAuth(user, password) },
   });
   const body = await response.json().catch(() => ({})) as JsonObject;
 
   if (!response.ok || typeof body.token !== 'string' || typeof body.expiresAt !== 'string') {
-    throw new Error(`Login failed: ${response.status} ${response.statusText}: ${JSON.stringify(body)}`);
+    throw new Error(`Login failed: ${response.status}: ${JSON.stringify(body)}`);
   }
 
   saveConfig({ serverUrl, adminUser: user, token: body.token, tokenExpiresAt: body.expiresAt });
   console.log(`Logged in to ${serverUrl} as ${user}.`);
-  console.log(`Token saved to ${getConfigPath()} and expires at ${body.expiresAt}.`);
+  console.log(`Token saved to ${getConfigPath()} (expires ${body.expiresAt}).`);
 }
 
 function sortEntries(record: unknown): [string, number][] {
@@ -261,19 +211,15 @@ function sortEntries(record: unknown): [string, number][] {
 function printSection(title: string, record: unknown): void {
   const rows = sortEntries(record);
   if (rows.length === 0) return;
-
   console.log(`\n${title}`);
   console.log('-'.repeat(title.length));
-  for (const [key, count] of rows) {
-    console.log(`${key.padEnd(24)} ${String(count).padStart(8)}`);
-  }
+  for (const [key, count] of rows) console.log(`${key.padEnd(24)} ${String(count).padStart(8)}`);
 }
 
 function printStats(stats: JsonObject): void {
   console.log(`Package:      ${stats.pkg}`);
   console.log(`Total pings:  ${stats.totalPings}`);
   console.log(`Active users: ${stats.uniqueUsers}`);
-
   printSection('Commands / features', stats.events);
   printSection('Active versions', stats.versions);
   printSection('Platforms', stats.platforms);
@@ -283,13 +229,11 @@ function printStats(stats: JsonObject): void {
 
 function printSnippet(opts: CliOptions): void {
   const config = loadConfig();
-  const serverUrl = normalizeUrl(requireOption(opts.url ?? config?.serverUrl, 'Missing server URL. Run: pinglet login --url <server-url>'));
-  const pkg = requireOption(opts.pkg, 'Missing --pkg <your-package-name>');
+  const serverUrl = normalizeUrl(requireOption(opts.url ?? config?.serverUrl, 'Missing server URL. Run: pinglet login --url <url>'));
+  const pkg = requireOption(opts.pkg, 'Missing package name. Usage: pinglet snippet <name>');
   const version = opts.packageVersion ?? '1.0.0';
-
   console.log(`npm install pinglet\n`);
-  console.log(`import { Pinglet } from 'pinglet';
-
+  console.log(`import { Pinglet } from 'pinglet';\n
 const analytics = new Pinglet({
   packageName: '${pkg}',
   packageVersion: '${version}',
@@ -300,61 +244,80 @@ await analytics.track('run');
 await analytics.track('command:build');`);
 }
 
+async function printStatus(opts: CliOptions): Promise<void> {
+  const config = loadConfig();
+  if (!config) { console.log('Not logged in. Run: pinglet login --url <url>'); return; }
+
+  const serverUrl = normalizeUrl(opts.url ?? config.serverUrl);
+
+  // Check health (public, no auth)
+  let health = 'unknown';
+  let version = '';
+  try {
+    const r = await fetch(`${serverUrl}/health`);
+    if (r.ok) { health = 'online'; const h = await r.json() as JsonObject; version = String(h.version ?? ''); }
+    else health = 'unreachable';
+  } catch { health = 'unreachable'; }
+
+  console.log(`Server:  ${serverUrl}`);
+  console.log(`Status:  ${health}${version ? ` (v${version})` : ''}`);
+  console.log(`User:    ${config.adminUser}`);
+  console.log(`Token:   expires ${config.tokenExpiresAt}`);
+
+  // Try to list packages
+  let pkgCount = 0;
+  try {
+    const r2 = await fetch(`${serverUrl}/packages`, { headers: { Authorization: `Bearer ${config.token}` } });
+    if (r2.ok) { const j = await r2.json() as JsonObject; pkgCount = (j.packages as unknown[])?.length ?? 0; }
+  } catch { /* ok */ }
+
+  console.log(`Tracking: ${pkgCount} package${pkgCount !== 1 ? 's' : ''}`);
+
+  if (pkgCount > 0) {
+    const r3 = await fetch(`${serverUrl}/packages`, { headers: { Authorization: `Bearer ${config.token}` } });
+    const pkgs = (await r3.json() as JsonObject).packages as string[];
+    pkgs.slice(0, 8).forEach((p) => console.log(`          ${p}`));
+    if (pkgs.length > 8) console.log(`          ... and ${pkgs.length - 8} more`);
+  }
+
+  console.log(`\nCommands: ls | <pkg> | show <pkg> | snippet <pkg> | health | logout`);
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  if (args.includes('--help') || args.includes('-h') || args.length === 0) {
-    console.log(usage());
-    return;
-  }
+  if (args.includes('--help') || args.includes('-h')) { console.log(usage()); return; }
 
   const opts = parseArgs(args);
 
-  if (opts.command === 'login') {
-    await login(opts);
-    return;
-  }
+  // No args → status overview
+  if (args.length === 0) { await printStatus(opts); return; }
 
-  if (opts.command === 'logout') {
-    deleteConfig();
-    console.log('Logged out. Local pinglet token removed.');
-    return;
-  }
-
-  if (opts.command === 'status') {
-    const result = await fetchJson('/auth/check', opts);
-    if (opts.json) console.log(JSON.stringify(result, null, 2));
-    else console.log('Logged in and server accepted the saved token.');
-    return;
-  }
-
-  if (opts.command === 'snippet') {
-    printSnippet(opts);
-    return;
-  }
-
-  if (opts.command === 'packages') {
-    const result = await fetchJson('/packages', opts);
-    if (opts.json) console.log(JSON.stringify(result, null, 2));
-    else {
-      const packages = Array.isArray(result.packages) ? result.packages : [];
-      if (packages.length === 0) console.log('No packages tracked yet.');
-      else packages.forEach((pkg) => console.log(String(pkg)));
+  // Route commands
+  switch (opts.command) {
+    case 'login': return await login(opts);
+    case 'logout': deleteConfig(); console.log('Logged out.'); return;
+    case 'health': { const r = await fetchJson('/health', opts); console.log(opts.json ? JSON.stringify(r, null, 2) : `ok, version ${r.version ?? 'unknown'}`); return; }
+    case 'status': { const r = await fetchJson('/auth/check', opts); console.log(opts.json ? JSON.stringify(r, null, 2) : 'Logged in. Token accepted.'); return; }
+    case 'snippet': printSnippet(opts); return;
+    case 'ls': case 'packages': {
+      const r = await fetchJson('/packages', opts);
+      const pkgs = Array.isArray(r.packages) ? r.packages : [];
+      if (opts.json) console.log(JSON.stringify(r, null, 2));
+      else if (pkgs.length === 0) console.log('No packages tracked yet.');
+      else pkgs.forEach((pkg) => console.log(String(pkg)));
+      return;
     }
-    return;
+    case 'show': case 'stats':
+    default: {
+      // Default: treat as stats
+      const pkg = opts.pkg || (opts.command && !COMMANDS.has(opts.command) ? opts.command : undefined);
+      requireOption(pkg, 'Missing package name. Usage: pinglet <pkg>');
+      const r = await fetchJson(`/stats?pkg=${encodeURIComponent(pkg!)}`, opts);
+      if (opts.json) console.log(JSON.stringify(r, null, 2));
+      else printStats(r);
+      return;
+    }
   }
-
-  if (opts.command === 'stats') {
-    const pkg = requireOption(opts.pkg, 'Missing --pkg or PINGLET_PACKAGE');
-    const result = await fetchJson(`/stats?pkg=${encodeURIComponent(pkg)}`, opts);
-    if (opts.json) console.log(JSON.stringify(result, null, 2));
-    else printStats(result);
-    return;
-  }
-
-  console.error(`Unknown command: ${opts.command}`);
-  console.error('');
-  console.error(usage());
-  process.exit(1);
 }
 
 main().catch((error: unknown) => {

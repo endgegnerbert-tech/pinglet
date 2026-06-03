@@ -1,12 +1,12 @@
 # pinglet
 
-> Tiny anonymous runtime analytics for Node.js CLI tools — real usage, not npm download noise.
+> Tiny anonymous runtime analytics for npm packages — real usage, not npm download noise.
 
 `pinglet` helps package authors answer: **is my CLI actually being used?** It sends small runtime pings only when the tool runs. It does **not** run on `npm install`.
 
 ## Why
 
-npm downloads include CI installs, mirrors, caches and bots. For CLI tools, downloads are not the same as active usage. `pinglet` tracks runtime events like `run`, `command:build`, or `error:config` with privacy-first defaults.
+npm downloads include CI installs, mirrors, caches and bots. For npm packages, downloads are not the same as active usage. `pinglet` tracks runtime events like `run`, `command:build`, or `error:config` with privacy-first defaults.
 
 ## Privacy defaults
 
@@ -47,7 +47,7 @@ npm install pinglet
 import { Pinglet } from 'pinglet';
 
 const analytics = new Pinglet({
-  packageName: 'my-cli',
+  packageName: 'my-package',
   packageVersion: '1.0.0',
   endpoint: 'https://your-pinglet-server.example/ping',
 });
@@ -111,7 +111,7 @@ Endpoints:
 | `POST` | `/auth/login` | Create a 30-day CLI admin token |
 | `GET` | `/auth/check` | Verify saved CLI login token |
 | `GET` | `/packages` | List tracked packages, admin auth if configured |
-| `GET` | `/stats?pkg=my-cli` | Aggregated analytics, admin auth if configured |
+| `GET` | `/stats?pkg=my-package` | Aggregated analytics, admin auth if configured |
 | `GET` | `/health` | Health check |
 
 ### Deploy on Railway
@@ -145,20 +145,20 @@ Then use:
 
 ```bash
 npx pinglet packages
-npx pinglet stats --pkg my-cli
+npx pinglet stats --pkg my-package
 ```
 
 Generate copy-paste SDK code for your package:
 
 ```bash
-npx pinglet snippet --pkg my-cli --package-version 1.0.0
+npx pinglet snippet --pkg my-package --package-version 1.0.0
 ```
 
 Example stats:
 
 ```json
 {
-  "pkg": "my-cli",
+  "pkg": "my-package",
   "totalPings": 1420,
   "uniqueUsers": 312,
   "events": { "run": 980, "command:build": 310 },

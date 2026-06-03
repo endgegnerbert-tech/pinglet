@@ -190,9 +190,10 @@ async function sendPing(endpoint: string, data: Record<string, unknown>, timeout
   let url: URL;
   try { url = new URL(endpoint); } catch { return; }
 
-  const mod = url.protocol === 'https:' ? httpsRequest : url.protocol === 'http:' ? httpRequest : undefined;
-  if (!mod) return;
+  // Only http/https — silently ignore file://, ftp:// etc.
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return;
 
+  const mod = url.protocol === 'https:' ? httpsRequest : httpRequest;
   const body = JSON.stringify(data);
 
   return new Promise((resolve) => {

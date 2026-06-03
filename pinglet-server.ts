@@ -260,6 +260,21 @@ function listPackages(dataDir: string) {
     .sort();
 }
 
+// Simple in-memory rate limiter: max 200 pings per minute from same IP
+const pingRateMap = new Map<string, { count: number; resetAt: number }>();
+function checkPingRate(req: IncomingMessage): boolean {
+  const ip = (req.headers['x-forwarded-for'] ?? req.socket.remoteAddress ?? 'unknown').toString().split(',')[0].trim();
+  const now = Date.now();
+  const entry = pingRateMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    pingRateMap.set(ip, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  entry.count += 1;
+  if (entry.count > 200) return false;
+  return true;
+}
+
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(body));
@@ -317,6 +332,11 @@ export function createPingletServer(options: PingletServerOptions = {}) {
     }
 
     if (req.method === 'POST' && url.pathname === '/ping') {
+      if (!checkPingRate(req)) {
+        sendJson(res, 429, { error: 'Rate limit exceeded. Max 200 pings/minute.' });
+        return;
+      }
+
       if (!hasValidIngestAuth(req, ingestToken)) {
         sendJson(res, 401, { error: 'Unauthorized' });
         return;
