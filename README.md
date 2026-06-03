@@ -1,7 +1,8 @@
 <p align="center">
-  <h1 align="center">📡 pinglet</h1>
-  <p align="center"><strong>Anonymous runtime analytics for npm packages.</strong><br>Real usage — not download noise.</p>
+  <img src="docs/assets/logo.png" alt="pinglet" width="400">
 </p>
+
+<p align="center"><strong>Anonymous runtime analytics for npm packages.</strong><br>Real usage — not download noise.</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="version">
