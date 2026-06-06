@@ -6,7 +6,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-0.2.0-blue" alt="version">
-  <img src="https://img.shields.io/badge/tests-11%2F11-brightgreen" alt="tests">
+  <img src="https://img.shields.io/badge/tests-15%2F15-brightgreen" alt="tests">
   <img src="https://img.shields.io/badge/dependencies-0-brightgreen" alt="deps">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
 </p>
@@ -129,6 +129,7 @@ pinglet uses the **industry-standard opt-out model** (like Next.js, VS Code, Hom
 - **Tracking is ON by default** at level 1 (basic: `run` events only)
 - **No prompts during `npm install`** — no postinstall script
 - **Documented in every README** — open source transparency
+- **Inspect before sending**: `PINGLET_DEBUG=1` shows the JSON payload without transmitting
 - **Opt out anytime**: `PINGLET_OPT_OUT=1`, `DO_NOT_TRACK=1`, `--no-telemetry`
 
 For more detail: [`docs/telemetry.md`](docs/telemetry.md).
@@ -209,6 +210,7 @@ analytics.isOptedOut           // current state
 - Events go low-cardinality: `command:build`, not raw input
 - Never track: paths, source code, logs, stack traces, secrets
 - Support `DO_NOT_TRACK=1` + `PINGLET_OPT_OUT` + `--no-telemetry`
+- Offer `PINGLET_DEBUG=1` so users can inspect the payload before trusting
 - Telemetry failures are always silent and non-blocking
 
 ---

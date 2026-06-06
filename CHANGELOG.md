@@ -3,6 +3,7 @@
 ## 0.2.0 (2026-06-06)
 
 ### Added
+- **`PINGLET_DEBUG=1`** — Debug mode: prints JSON payload to stderr instead of sending. Users can inspect exactly what data would be transmitted before opting out.
 - **`Pinglet.selfTrack(name, endpoint)`** — Static helper for internal dogfooding. Ersetzt das manuelle `new Pinglet({...}).track('run')` in CLI und Server.
 - **`lib/utils.ts`** — Shared sanitization module (sanitizeText, sanitizePackageName, sanitizeEvent, sanitizeProperties, sanitizeClientId). Vorher 1:1 in SDK und Server dupliziert.
 - **First-run notice** — Einmalige Konsolen-Notice beim ersten `track()`-Aufruf (TTY only), wie Next.js es macht.

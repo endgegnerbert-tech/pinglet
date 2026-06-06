@@ -338,6 +338,16 @@ export class Pinglet {
     if (this.isOptedOut) return;
     if (!canTrackEvent(this.state.level, event)) return;
     const ping = buildPing(this.opts, this.state, event, properties);
+
+    // PINGLET_DEBUG: print payload to stderr instead of sending
+    if (process.env.PINGLET_DEBUG === '1') {
+      if (!this.opts.silent) {
+        console.error('[pinglet] Would send:', JSON.stringify(ping, null, 2));
+        console.error('[pinglet] Disable with DO_NOT_TRACK=1 or --no-telemetry');
+      }
+      return;
+    }
+
     await sendPing(this.opts.endpoint, ping, this.opts.timeoutMs, this.opts.ingestToken);
   }
 

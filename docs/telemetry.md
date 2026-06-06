@@ -26,11 +26,37 @@ Users can disable telemetry at any time:
 # Environment variables
 DO_NOT_TRACK=1 npx my-tool
 PINGLET_OPT_OUT=1 npx my-tool
+PINGLET_DEBUG=1 npx my-tool        # preview payload, don't send
 
 # CLI flag
 npx my-tool --no-telemetry
 npx my-tool --disable-telemetry
 ```
+
+### Debug mode: inspect before sending
+
+Users can see exactly what data would be sent without actually transmitting anything:
+
+```bash
+PINGLET_DEBUG=1 npx my-tool
+```
+
+The JSON payload is printed to stderr with a note on how to disable telemetry:
+
+```
+[pinglet] Would send: {
+  "sdk": "pinglet",
+  "pkg": "my-package",
+  "event": "run",
+  "clientId": "a1b2c3d4e5f6...",
+  "nodeVersion": "v22.0.0",
+  "platform": "darwin",
+  "ci": false
+}
+[pinglet] Disable with DO_NOT_TRACK=1 or --no-telemetry
+```
+
+No data is sent to the server — only printed to stderr.
 
 ### One-time notice
 
