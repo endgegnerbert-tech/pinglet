@@ -11,6 +11,12 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
 </p>
 
+<p align="center">
+  <a href="https://youtu.be/JJYARlg1wEU">
+    <img src="https://img.shields.io/badge/▶-Watch%20Video-red?style=for-the-badge" alt="Watch Video">
+  </a>
+</p>
+
 ---
 
 ## 🎯 The problem
