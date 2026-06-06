@@ -5,8 +5,8 @@
 <p align="center"><strong>Anonymous runtime analytics for npm packages.</strong><br>Real usage — not download noise.</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.3-blue" alt="version">
-  <img src="https://img.shields.io/badge/tests-9%2F9-brightgreen" alt="tests">
+  <img src="https://img.shields.io/badge/version-0.2.0-blue" alt="version">
+  <img src="https://img.shields.io/badge/tests-11%2F11-brightgreen" alt="tests">
   <img src="https://img.shields.io/badge/dependencies-0-brightgreen" alt="deps">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
 </p>
@@ -122,19 +122,16 @@ pinglet logout                  # remove local login
 
 Full privacy model: [`docs/security.md`](docs/security.md).
 
-### Consent
+### Telemetry model
 
-At **install time** (interactive terminals only), users see a level picker:
+pinglet uses the **industry-standard opt-out model** (like Next.js, VS Code, Homebrew):
 
-```
-Level [0-3] (default 1):
-  0 — No telemetry
-  1 — Basic (just "run was executed") ← default
-  2 — Standard (which commands are used)
-  3 — Extended (+ non-PII metadata)
-```
+- **Tracking is ON by default** at level 1 (basic: `run` events only)
+- **No prompts during `npm install`** — no postinstall script
+- **Documented in every README** — open source transparency
+- **Opt out anytime**: `PINGLET_OPT_OUT=1`, `DO_NOT_TRACK=1`, `--no-telemetry`
 
-No question during CI installs. Opt out anytime: `PINGLET_OPT_OUT=1`, `DO_NOT_TRACK=1`, `--no-telemetry`.
+For more detail: [`docs/telemetry.md`](docs/telemetry.md).
 
 ---
 
@@ -209,7 +206,6 @@ analytics.isOptedOut           // current state
 ## ✅ Best practices
 
 - Add a visible `Telemetry` section to your README
-- Never track during `npm install` or postinstall
 - Events go low-cardinality: `command:build`, not raw input
 - Never track: paths, source code, logs, stack traces, secrets
 - Support `DO_NOT_TRACK=1` + `PINGLET_OPT_OUT` + `--no-telemetry`

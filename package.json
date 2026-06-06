@@ -1,6 +1,6 @@
 {
   "name": "@black-knight.dev/pinglet",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Anonymous runtime analytics for npm packages — real usage, not download noise",
   "type": "module",
   "main": "dist/pinglet.js",
@@ -21,7 +21,6 @@
   },
   "files": [
     "dist",
-    "postinstall.mjs",
     "README.md",
     "LICENSE",
     "railway.json",
@@ -30,7 +29,6 @@
     "examples"
   ],
   "scripts": {
-    "postinstall": "node postinstall.mjs",
     "build": "tsc",
     "test": "npm run build && node --test test/*.test.js",
     "start": "npm run build && node dist/pinglet-server.js",

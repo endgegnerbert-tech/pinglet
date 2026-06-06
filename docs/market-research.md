@@ -49,7 +49,6 @@ Later, only after adoption:
 
 Avoid these because they trigger distrust:
 
-- network requests during `npm install` or `postinstall`
 - hidden telemetry with no README section
 - no opt-out
 - collecting commands with raw user arguments

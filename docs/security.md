@@ -28,12 +28,14 @@
 - Access logs (by default — your provider may still log)
 - Secrets or credentials
 
-## Consent model
+## Telemetry model
 
-1. **At `npm install`** (postinstall script): interactive terminal shows a level picker (0–3). Answer saved to `~/.config/pinglet/<package>.json`.
-2. **Fallback at first run**: if postinstall never ran (CI, `--ignore-scripts`), the `Pinglet.init()` method asks once when TTY is available.
-3. **Non-interactive environments**: never ask, never track.
-4. **Opt-out overrides**: `PINGLET_OPT_OUT=1`, `DO_NOT_TRACK=1`, or `--no-telemetry`.
+pinglet uses the **industry-standard opt-out model** (like Next.js, VS Code, Homebrew).
+
+- **Tracking is ON by default** at level 1 (basic: `run` events only)
+- **No prompts during `npm install`** — no postinstall script
+- **One-time notice** on first `track()` call (TTY only)
+- **Opt-out overrides**: `PINGLET_OPT_OUT=1`, `DO_NOT_TRACK=1`, or `--no-telemetry`
 
 Choose from levels:
 
@@ -43,6 +45,8 @@ Choose from levels:
 | 1 | Basic (default) | `run` only |
 | 2 | Standard | `run`, `command:build` |
 | 3 | Extended | + non-PII metadata like `mode` |
+
+Full documentation: [`docs/telemetry.md`](telemetry.md).
 
 ## Anonymous client id
 

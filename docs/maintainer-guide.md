@@ -106,34 +106,35 @@ await analytics.track('open-file', { path: filePath });
 
 Copy this into your package README:
 
-````md
-## Telemetry
+````markdown
+## 📡 Telemetry
 
-This CLI uses `pinglet` to send anonymous runtime usage pings so we can understand which features are used and improve the project.
+This package collects anonymous runtime usage data via pinglet
+to understand which features are used and improve the project.
 
-Collected:
+**Collected:**
 - event name, e.g. `run` or `command:build`
 - package version
 - Node.js version
 - platform (`darwin`, `linux`, `win32`)
-- whether the command appears to run in CI
-- anonymous random client id
+- whether it appears to run in CI
+- anonymous random client id (SHA-256 hashed, one-way)
 
-Not collected:
+**Not collected:**
 - source code or file contents
-- file paths, project names or git remotes
-- usernames, hostnames, environment variables or secrets
-- logs, stack traces or raw command arguments
+- file paths, project names, git remotes
+- usernames, hostnames, environment variables, secrets
+- logs, stack traces, raw command arguments
 
-Telemetry is never sent during `npm install`.
-
-Opt out:
+**Opt out:**
 
 ```bash
-PINGLET_OPT_OUT=1 my-cli
-DO_NOT_TRACK=1 my-cli
-my-cli --no-telemetry
+DO_NOT_TRACK=1 my-command
+PINGLET_OPT_OUT=1 my-command
+my-command --no-telemetry
 ```
+
+[Learn more about pinglet telemetry](https://github.com/endgegnerbert-tech/pinglet)
 ````
 
 ## 5. Login once and check analytics from your terminal

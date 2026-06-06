@@ -9,6 +9,9 @@ import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, write
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { sanitizeText, sanitizePackageName, sanitizeEvent, sanitizeProperties } from './lib/utils.js';
+import { Pinglet } from './pinglet.js';
+
 export interface PingletServerOptions {
   port?: number;
   dataDir?: string;
@@ -47,34 +50,6 @@ interface AdminSession {
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-function sanitizeText(value: unknown, fallback: string, maxLength: number): string {
-  const text = typeof value === 'string' ? value : fallback;
-  return text.replace(/[\n\r\t]/g, ' ').slice(0, maxLength);
-}
-
-function sanitizePackageName(value: unknown): string {
-  return sanitizeText(value, '', 96).replace(/[^a-z0-9@/_.-]/gi, '_');
-}
-
-function sanitizeEvent(value: unknown): string {
-  return sanitizeText(value, '', 128).replace(/[^a-z0-9_.:-]/gi, '_');
-}
-
-function sanitizeProperties(input: unknown): TelemetryProperties | undefined {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
-
-  const safe: TelemetryProperties = {};
-  for (const [rawKey, rawValue] of Object.entries(input).slice(0, 20)) {
-    const key = rawKey.replace(/[^a-z0-9_.:-]/gi, '_').slice(0, 64);
-    if (!key) continue;
-
-    if (typeof rawValue === 'string') safe[key] = rawValue.slice(0, 128);
-    else if (typeof rawValue === 'number' && Number.isFinite(rawValue)) safe[key] = rawValue;
-    else if (typeof rawValue === 'boolean' || rawValue === null) safe[key] = rawValue;
-  }
-
-  return Object.keys(safe).length > 0 ? safe : undefined;
-}
 
 function getFilePath(dataDir: string, packageName: string): string {
   const safe = sanitizePackageName(packageName).replace(/[\/]/g, '_').slice(0, 96);
@@ -386,7 +361,7 @@ export function createPingletServer(options: PingletServerOptions = {}) {
     }
 
     if (req.method === 'GET' && url.pathname === '/health') {
-      sendJson(res, 200, { ok: true, version: '0.1.3' });
+      sendJson(res, 200, { ok: true, version: '0.2.0' });
       return;
     }
 
@@ -403,17 +378,7 @@ export function startPingletServer(options: PingletServerOptions = {}) {
 
   server.listen(port, () => {
     // Self-analytics: fire-and-forget, never blocks server startup
-    import('./pinglet.js').then(({ Pinglet }) => {
-      new Pinglet({
-        packageName: 'pinglet-server',
-        packageVersion: '0.1.3',
-        endpoint: `http://127.0.0.1:${port}/ping`,
-        silent: true,
-        timeoutMs: 500,
-        _internal: true,
-        meta: { app: 'pinglet-server' },
-      }).track('run');
-    }).catch(() => {});
+    Pinglet.selfTrack('server', `http://127.0.0.1:${port}/ping`);
 
     if (options.silent) return;
     console.log(`pinglet-server running on http://localhost:${port}`);

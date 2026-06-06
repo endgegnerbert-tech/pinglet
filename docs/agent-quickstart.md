@@ -151,20 +151,16 @@ Analytics available:
 
 ---
 
-## 6. Consent flow (for end users)
+## 6. Telemetry model (for end users)
 
-When a user runs `npm install` of the package in an interactive terminal, a postinstall script asks:
+pinglet uses the **opt-out model** (like Next.js, VS Code, Homebrew):
 
-```
-Level [0-3] (default 1):
-  0 — No telemetry
-  1 — Basic: just "the tool was run"  ← default
-  2 — Standard: run + which commands
-  3 — Extended: + non-PII metadata
-```
+- Tracking is **ON by default** at level 1 (basic: `run` events only)
+- **No prompts during `npm install`** — no postinstall script
+- **One-time notice** on first run (TTY only)
+- Users can opt out anytime: `DO_NOT_TRACK=1`, `PINGLET_OPT_OUT=1`, `--no-telemetry`
 
-CI installs never ask. No tracking at `npm install`. Users can opt out anytime with:
-`PINGLET_OPT_OUT=1`, `DO_NOT_TRACK=1`, `--no-telemetry`
+For full documentation: [`docs/telemetry.md`](telemetry.md)
 
 ---
 

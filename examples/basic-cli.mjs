@@ -5,7 +5,6 @@ const analytics = new Pinglet({
   packageName: 'example-cli',
   packageVersion: '0.0.0',
   endpoint: process.env.PINGLET_ENDPOINT || 'http://127.0.0.1:3456/ping',
-  askConsent: false,
   silent: true,
 });
 

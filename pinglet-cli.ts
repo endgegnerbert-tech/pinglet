@@ -296,15 +296,7 @@ async function main(): Promise<void> {
   const saved = loadConfig();
   if (saved) {
     import('./pinglet.js').then(({ Pinglet }) => {
-      new Pinglet({
-        packageName: 'pinglet-cli',
-        packageVersion: '0.1.3',
-        endpoint: `${saved.serverUrl}/ping`,
-        silent: true,
-        timeoutMs: 500,
-        _internal: true,
-        meta: { app: 'pinglet-cli' },
-      }).track('run');
+      Pinglet.selfTrack('cli', `${saved.serverUrl}/ping`);
     }).catch(() => {});
   }
 

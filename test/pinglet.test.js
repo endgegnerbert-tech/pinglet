@@ -23,7 +23,7 @@ function close(server) {
   });
 }
 
-/** Write a postinstall consent file so Pinglet allows tracking. */
+/** Write a postinstall consent file (v0.1 format) to test migration. */
 async function writeConsent(configHome, packageName, consent = true, level = 2) {
   const dir = join(configHome, 'pinglet');
   const { mkdir } = await import('node:fs/promises');
@@ -34,11 +34,32 @@ async function writeConsent(configHome, packageName, consent = true, level = 2) 
   await writeFile(join(dir, `${runtimeName}.json`), JSON.stringify({ optedOut: !consent || level === 0, clientId: 'test-client-id-12345' }));
 }
 
-test('client sends anonymous runtime ping without PII fields', async () => {
-  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-test-'));
+// ============================================================
+// v0.2 default behavior: tracking ON without any consent file
+// ============================================================
+
+test('v0.2: without any consent file, tracking is ON by default', async () => {
+  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-default-on-'));
   const origXdg = process.env.XDG_CONFIG_HOME;
   process.env.XDG_CONFIG_HOME = configHome;
-  await writeConsent(configHome, 'example-cli', true, 3);
+
+  // No consent file written — test default behavior
+
+  const pinglet = new Pinglet({
+    packageName: 'default-on-cli',
+    packageVersion: '1.0.0',
+    endpoint: 'http://127.0.0.1:0/ping',
+    silent: true,
+  });
+
+  assert.equal(pinglet.isOptedOut, false, 'v0.2: tracking should be ON by default');
+  if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
+});
+
+test('v0.2: tracking ON by default actually sends pings', async () => {
+  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-sends-'));
+  const origXdg = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = configHome;
 
   const received = [];
   const server = createPingletServer({ dataDir: join(configHome, 'data'), silent: true });
@@ -56,30 +77,32 @@ test('client sends anonymous runtime ping without PII fields', async () => {
   });
 
   const pinglet = new Pinglet({
-    packageName: 'example-cli',
+    packageName: 'sends-cli',
     packageVersion: '1.2.3',
     endpoint: `http://127.0.0.1:${port}/ping`,
     silent: true,
   });
 
-  await pinglet.track('command:build', { target: 'prod' });
+  await pinglet.track('run');
   await close(server);
   if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
 
-  assert.equal(received.length, 1);
-  assert.equal(received[0].pkg, 'example-cli');
-  assert.equal(received[0].event, 'command:build');
-  assert.equal(received[0].properties.target, 'prod');
+  assert.equal(received.length, 1, 'v0.2: should send ping by default');
+  assert.equal(received[0].event, 'run');
   assert.ok(received[0].clientId);
-  assert.equal(received[0].machineId, undefined);
 });
 
-test('without consent file, tracking is disabled by default', async () => {
-  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-no-consent-'));
+test('v0.2: DO_NOT_TRACK env var disables tracking', async () => {
+  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-dnt-'));
+  const origXdg = process.env.XDG_CONFIG_HOME;
+  const origDnt = process.env.DO_NOT_TRACK;
+  process.env.XDG_CONFIG_HOME = configHome;
+  process.env.DO_NOT_TRACK = '1';
+
+  const received = [];
   const server = createPingletServer({ dataDir: join(configHome, 'data'), silent: true });
   const port = await listen(server);
 
-  const received = [];
   server.removeAllListeners('request');
   server.on('request', (req, res) => {
     let body = '';
@@ -87,18 +110,78 @@ test('without consent file, tracking is disabled by default', async () => {
     req.on('end', () => { received.push(JSON.parse(body)); res.writeHead(200); res.end('{}'); });
   });
 
-  const pinglet = new Pinglet({
-    packageName: 'no-consent-cli',
+  await new Pinglet({
+    packageName: 'dnt-cli',
     packageVersion: '1.0.0',
     endpoint: `http://127.0.0.1:${port}/ping`,
     silent: true,
+  }).track('run');
+
+  await close(server);
+  if (origDnt === undefined) delete process.env.DO_NOT_TRACK; else process.env.DO_NOT_TRACK = origDnt;
+  if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
+
+  assert.equal(received.length, 0, 'DO_NOT_TRACK=1 should suppress pings');
+});
+
+// ============================================================
+// v0.1 → v0.2 migration: existing consent files are respected
+// ============================================================
+
+test('v0.1 migration: consent=true level=2 allows tracking', async () => {
+  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-migrate-allow-'));
+  const origXdg = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = configHome;
+  await writeConsent(configHome, 'migrate-cli', true, 2);
+
+  const pinglet = new Pinglet({
+    packageName: 'migrate-cli',
+    packageVersion: '1.0.0',
+    endpoint: 'http://127.0.0.1:0/ping',
+    silent: true,
   });
 
-  await pinglet.track('run');
-  await close(server);
-
-  assert.equal(received.length, 0, 'Should not send pings without consent');
+  assert.equal(pinglet.isOptedOut, false, 'v0.1 consent=true level=2 should still work');
+  if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
 });
+
+test('v0.1 migration: consent=false disables tracking', async () => {
+  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-migrate-off-'));
+  const origXdg = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = configHome;
+  await writeConsent(configHome, 'off-cli', false, 0);
+
+  const pinglet = new Pinglet({
+    packageName: 'off-cli',
+    packageVersion: '1.0.0',
+    endpoint: 'http://127.0.0.1:0/ping',
+    silent: true,
+  });
+
+  assert.equal(pinglet.isOptedOut, true, 'v0.1 consent=false should stay disabled');
+  if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
+});
+
+test('v0.1 migration: level 0 disables tracking', async () => {
+  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-migrate-level0-'));
+  const origXdg = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = configHome;
+  await writeConsent(configHome, 'level0-cli', true, 0);
+
+  const pinglet = new Pinglet({
+    packageName: 'level0-cli',
+    packageVersion: '1.0.0',
+    endpoint: 'http://127.0.0.1:0/ping',
+    silent: true,
+  });
+
+  assert.equal(pinglet.isOptedOut, true, 'v0.1 level 0 should disable tracking');
+  if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
+});
+
+// ============================================================
+// Level-based event filtering
+// ============================================================
 
 test('level 1 tracks only run events', async () => {
   const configHome = await mkdtemp(join(tmpdir(), 'pinglet-level1-'));
@@ -118,9 +201,8 @@ test('level 1 tracks only run events', async () => {
   });
 
   const endpoint = `http://127.0.0.1:${port}/ping`;
-  const pinglet = new Pinglet({ packageName: 'basic-cli', packageVersion: '1.0.0', endpoint, silent: true });
-  await pinglet.track('run');
-  await pinglet.track('command:build', { target: 'prod' });
+  await new Pinglet({ packageName: 'basic-cli', packageVersion: '1.0.0', endpoint, silent: true }).track('run');
+  await new Pinglet({ packageName: 'basic-cli', packageVersion: '1.0.0', endpoint, silent: true }).track('command:build', { target: 'prod' });
 
   await close(server);
   if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
@@ -157,10 +239,11 @@ test('level 2 strips properties but keeps event names', async () => {
   assert.equal(received[0].properties, undefined);
 });
 
-test('internal telemetry bypass keeps anonymous stable client id', async () => {
-  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-internal-'));
+test('level 3 includes properties', async () => {
+  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-level3-'));
   const origXdg = process.env.XDG_CONFIG_HOME;
   process.env.XDG_CONFIG_HOME = configHome;
+  await writeConsent(configHome, 'extended-cli', true, 3);
 
   const received = [];
   const server = createPingletServer({ dataDir: join(configHome, 'data'), silent: true });
@@ -174,17 +257,64 @@ test('internal telemetry bypass keeps anonymous stable client id', async () => {
   });
 
   const endpoint = `http://127.0.0.1:${port}/ping`;
-  await new Pinglet({ packageName: 'internal-cli', packageVersion: '1.0.0', endpoint, silent: true, _internal: true }).track('run');
-  await new Pinglet({ packageName: 'internal-cli', packageVersion: '1.0.0', endpoint, silent: true, _internal: true }).track('tool:success');
+  await new Pinglet({ packageName: 'extended-cli', packageVersion: '1.0.0', endpoint, silent: true }).track('command:build', { target: 'prod' });
 
   await close(server);
   if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
 
   assert.equal(received.length, 1);
-  assert.ok(received[0].clientId);
-  assert.notEqual(received[0].clientId, 'internal');
-  assert.equal(received[0].event, 'run');
+  assert.equal(received[0].event, 'command:build');
+  assert.equal(received[0].properties.target, 'prod');
 });
+
+// ============================================================
+// Privacy: no PII in payload
+// ============================================================
+
+test('client sends anonymous runtime ping without PII fields', async () => {
+  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-pii-'));
+  const origXdg = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = configHome;
+  await writeConsent(configHome, 'pii-safe', true, 3);
+
+  const received = [];
+  const server = createPingletServer({ dataDir: join(configHome, 'data'), silent: true });
+  const port = await listen(server);
+
+  server.removeAllListeners('request');
+  server.on('request', (req, res) => {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      received.push(JSON.parse(body));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end('{"ok":true}');
+    });
+  });
+
+  await new Pinglet({
+    packageName: 'pii-safe',
+    packageVersion: '1.2.3',
+    endpoint: `http://127.0.0.1:${port}/ping`,
+    silent: true,
+  }).track('command:build', { target: 'prod' });
+
+  await close(server);
+  if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
+
+  assert.equal(received.length, 1);
+  assert.equal(received[0].pkg, 'pii-safe');
+  assert.equal(received[0].event, 'command:build');
+  assert.equal(received[0].properties.target, 'prod');
+  assert.ok(received[0].clientId);
+  assert.equal(received[0].machineId, undefined);
+  assert.equal(received[0].hostname, undefined);
+  assert.equal(received[0].username, undefined);
+});
+
+// ============================================================
+// Server tests (unchanged from v0.1)
+// ============================================================
 
 test('server preserves scoped package names with dots in stats', async () => {
   const dataDir = await mkdtemp(join(tmpdir(), 'pinglet-scoped-'));
@@ -290,10 +420,13 @@ test('admin endpoints can be protected with username and password', async () => 
   assert.deepEqual(packages.packages, ['private-cli']);
 });
 
-test('cli login + postinstall consent reads analytics', async () => {
+// ============================================================
+// Integration: CLI login + read analytics
+// ============================================================
+
+test('cli login + default tracking reads analytics', async () => {
   const dataDir = await mkdtemp(join(tmpdir(), 'pinglet-cli-data-'));
   const configHome = await mkdtemp(join(tmpdir(), 'pinglet-cli-config-'));
-  await writeConsent(configHome, 'cli-login-test', true, 2);
 
   const server = createPingletServer({
     dataDir,
@@ -332,53 +465,33 @@ test('cli login + postinstall consent reads analytics', async () => {
   assert.match(stats.stdout, /command:build/);
 });
 
-test('postinstall consent file is correctly detected by Pinglet', async () => {
-  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-consent-detect-'));
+// ============================================================
+// _internal backward compatibility (no-op in v0.2)
+// ============================================================
+
+test('_internal flag is backward compatible', async () => {
+  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-internal-'));
   const origXdg = process.env.XDG_CONFIG_HOME;
   process.env.XDG_CONFIG_HOME = configHome;
-  await writeConsent(configHome, 'supercli', true, 2);
-  const pinglet = new Pinglet({
-    packageName: 'supercli',
-    packageVersion: '1.0.0',
-    endpoint: 'http://127.0.0.1:0/ping',
-    silent: true,
+
+  const received = [];
+  const server = createPingletServer({ dataDir: join(configHome, 'data'), silent: true });
+  const port = await listen(server);
+
+  server.removeAllListeners('request');
+  server.on('request', (req, res) => {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => { received.push(JSON.parse(body)); res.writeHead(200); res.end('{}'); });
   });
 
-  assert.equal(pinglet.isOptedOut, false, 'With consent=true and level>=1, tracking should be allowed');
+  const endpoint = `http://127.0.0.1:${port}/ping`;
+  await new Pinglet({ packageName: 'internal-cli', packageVersion: '1.0.0', endpoint, silent: true, _internal: true }).track('run');
+
+  await close(server);
   if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
-});
 
-test('postinstall consent level 0 disables tracking', async () => {
-  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-level0-'));
-  const origXdg = process.env.XDG_CONFIG_HOME;
-  process.env.XDG_CONFIG_HOME = configHome;
-  await writeConsent(configHome, 'minimal-cli', true, 0);
-
-  const env = { ...process.env, XDG_CONFIG_HOME: configHome };
-  const pinglet = new Pinglet({
-    packageName: 'minimal-cli',
-    packageVersion: '1.0.0',
-    endpoint: 'http://127.0.0.1:0/ping',
-    silent: true,
-  });
-
-  assert.equal(pinglet.isOptedOut, true, 'Level 0 should disable tracking');
-  if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
-});
-
-test('postinstall consent=false disables tracking', async () => {
-  const configHome = await mkdtemp(join(tmpdir(), 'pinglet-consent-false-'));
-  const origXdg = process.env.XDG_CONFIG_HOME;
-  process.env.XDG_CONFIG_HOME = configHome;
-  await writeConsent(configHome, 'no-thanks', false, 0);
-
-  const pinglet = new Pinglet({
-    packageName: 'no-thanks',
-    packageVersion: '1.0.0',
-    endpoint: 'http://127.0.0.1:0/ping',
-    silent: true,
-  });
-
-  assert.equal(pinglet.isOptedOut, true, 'consent=false should disable tracking');
-  if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
+  assert.equal(received.length, 1);
+  assert.ok(received[0].clientId);
+  assert.equal(received[0].event, 'run');
 });
