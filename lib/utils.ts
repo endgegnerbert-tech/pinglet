@@ -40,7 +40,4 @@ export function sanitizeProperties(input: unknown): TelemetryProperties | undefi
   return Object.keys(safe).length > 0 ? safe : undefined;
 }
 
-/** Client id: lowercase hex only, max 64 chars. */
-export function sanitizeClientId(value: unknown): string {
-  return sanitizeText(value, '', 64).replace(/[^a-f0-9]/gi, '').slice(0, 64);
-}
+

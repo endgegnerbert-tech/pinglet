@@ -9,6 +9,9 @@
  *  - Fully documented in README — open source transparency
  *
  * v0.2.0: Removed postinstall consent prompt. Default opt-in.
+ * v0.2.1: Level 1 now sends ALL events (no properties). Removed socket.unref()
+ *           so await track() actually waits. Auto-init event on construction.
+ *         Notice shows package name. Snippet includes silent:true.
  * See docs/v02-plan.md for reasoning.
  */
 
@@ -21,7 +24,7 @@ import { join } from 'node:path';
 
 import { sanitizePackageName, sanitizeProperties } from './lib/utils.js';
 
-const PINGLET_VERSION = '0.2.0';
+const PINGLET_VERSION = '0.2.1';
 const DEFAULT_TIMEOUT_MS = 1_500;
 const NOTIFIED_FILENAME = '.notified';
 
@@ -76,7 +79,7 @@ function getPingletDir(): string {
 function getStateFilePath(packageName: string): string {
   const dir = getPingletDir();
   mkdirSync(dir, { recursive: true });
-  const safe = sanitizePackageName(packageName).replace(/[/]/g, '_');
+  const safe = sanitizePackageName(packageName).replace(/\//g, '+');
   return join(dir, `${safe}.json`);
 }
 
@@ -92,9 +95,9 @@ function normalizeLevel(level: unknown, fallback = 1): number {
   return level === 0 || level === 1 || level === 2 || level === 3 ? level : fallback;
 }
 
-function canTrackEvent(level: number, event: string): boolean {
+function canTrackEvent(level: number, _event: string): boolean {
   if (level <= 0) return false;
-  if (level === 1) return event === 'run';
+  // Level 1+ sends all events. Properties are filtered by selectPropertiesForLevel.
   return true;
 }
 
@@ -237,7 +240,6 @@ async function sendPing(endpoint: string, data: Record<string, unknown>, timeout
       },
       (res) => { res.resume(); res.on('end', resolve); },
     );
-    req.on('socket', (socket) => socket.unref());
     req.on('error', () => resolve());
     req.setTimeout(timeoutMs, () => { req.destroy(); resolve(); });
     req.write(body);
@@ -246,7 +248,7 @@ async function sendPing(endpoint: string, data: Record<string, unknown>, timeout
 }
 
 /** Show first-run notice once per install. Like Next.js does. */
-function maybeNotify(silent: boolean): void {
+function maybeNotify(packageName: string, silent: boolean): void {
   if (silent) return;
   const isTTY = Boolean(process.stdin.isTTY && process.stdout.isTTY);
   if (!isTTY) return;
@@ -263,10 +265,9 @@ function maybeNotify(silent: boolean): void {
   }
 
   console.error('');
-  console.error('  pinglet collects anonymous runtime usage data to help');
-  console.error('  improve this package. Learn more:');
-  console.error('  https://github.com/endgegnerbert-tech/pinglet');
-  console.error('  Disable anytime: DO_NOT_TRACK=1 or --no-telemetry');
+  console.error(`  [${packageName}] Collects anonymous runtime usage to help improve this package.`);
+  console.error('  Learn more: https://github.com/endgegnerbert-tech/pinglet');
+  console.error('  Disable: DO_NOT_TRACK=1 or --no-telemetry');
   console.error('');
 }
 
@@ -312,6 +313,9 @@ export class Pinglet {
         level: Math.max(this.state.level, normalizeLevel(opts._internalLevel, 1)),
       };
     }
+
+    // Auto-init: track SDK construction so we see who imports us
+    this.track('init').catch(() => {});
   }
 
   /**
@@ -332,7 +336,7 @@ export class Pinglet {
     // First-run notice (once per install, TTY only)
     if (!this.notified) {
       this.notified = true;
-      maybeNotify(this.opts.silent);
+      maybeNotify(this.opts.packageName, this.opts.silent);
     }
 
     if (this.isOptedOut) return;

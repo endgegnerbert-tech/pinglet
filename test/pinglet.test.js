@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile as execFileCallback } from 'node:child_process';
-import { mkdtemp, readFile, writeFile, readdir } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -87,9 +87,11 @@ test('v0.2: tracking ON by default actually sends pings', async () => {
   await close(server);
   if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
 
-  assert.equal(received.length, 1, 'v0.2: should send ping by default');
-  assert.equal(received[0].event, 'run');
+  assert.equal(received.length, 2, 'v0.2: should send init + run ping by default');
+  assert.equal(received[0].event, 'init');
+  assert.equal(received[1].event, 'run');
   assert.ok(received[0].clientId);
+  assert.ok(received[1].clientId);
 });
 
 test('v0.2: DO_NOT_TRACK env var disables tracking', async () => {
@@ -183,7 +185,7 @@ test('v0.1 migration: level 0 disables tracking', async () => {
 // Level-based event filtering
 // ============================================================
 
-test('level 1 tracks only run events', async () => {
+test('level 1 tracks all events but strips properties', async () => {
   const configHome = await mkdtemp(join(tmpdir(), 'pinglet-level1-'));
   const origXdg = process.env.XDG_CONFIG_HOME;
   process.env.XDG_CONFIG_HOME = configHome;
@@ -207,8 +209,13 @@ test('level 1 tracks only run events', async () => {
   await close(server);
   if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
 
-  assert.equal(received.length, 1);
-  assert.equal(received[0].event, 'run');
+  // 2 Pinglets × (init + explicit track) = 4 events
+  assert.equal(received.length, 4);
+  assert.equal(received[0].event, 'init');
+  assert.equal(received[1].event, 'run');
+  assert.equal(received[2].event, 'init');
+  assert.equal(received[3].event, 'command:build');
+  assert.equal(received[3].properties, undefined);
 });
 
 test('level 2 strips properties but keeps event names', async () => {
@@ -234,9 +241,10 @@ test('level 2 strips properties but keeps event names', async () => {
   await close(server);
   if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
 
-  assert.equal(received.length, 1);
-  assert.equal(received[0].event, 'command:build');
-  assert.equal(received[0].properties, undefined);
+  assert.equal(received.length, 2);
+  assert.equal(received[0].event, 'init');
+  assert.equal(received[1].event, 'command:build');
+  assert.equal(received[1].properties, undefined);
 });
 
 test('level 3 includes properties', async () => {
@@ -262,9 +270,10 @@ test('level 3 includes properties', async () => {
   await close(server);
   if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
 
-  assert.equal(received.length, 1);
-  assert.equal(received[0].event, 'command:build');
-  assert.equal(received[0].properties.target, 'prod');
+  assert.equal(received.length, 2);
+  assert.equal(received[0].event, 'init');
+  assert.equal(received[1].event, 'command:build');
+  assert.equal(received[1].properties.target, 'prod');
 });
 
 // ============================================================
@@ -302,11 +311,14 @@ test('client sends anonymous runtime ping without PII fields', async () => {
   await close(server);
   if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
 
-  assert.equal(received.length, 1);
+  assert.equal(received.length, 2);
+  assert.equal(received[0].event, 'init');
   assert.equal(received[0].pkg, 'pii-safe');
-  assert.equal(received[0].event, 'command:build');
-  assert.equal(received[0].properties.target, 'prod');
+  assert.equal(received[1].event, 'command:build');
+  assert.equal(received[1].pkg, 'pii-safe');
+  assert.equal(received[1].properties.target, 'prod');
   assert.ok(received[0].clientId);
+  assert.ok(received[1].clientId);
   assert.equal(received[0].machineId, undefined);
   assert.equal(received[0].hostname, undefined);
   assert.equal(received[0].username, undefined);
@@ -491,7 +503,9 @@ test('_internal flag is backward compatible', async () => {
   await close(server);
   if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = origXdg;
 
-  assert.equal(received.length, 1);
+  assert.equal(received.length, 2);
   assert.ok(received[0].clientId);
-  assert.equal(received[0].event, 'run');
+  assert.equal(received[0].event, 'init');
+  assert.ok(received[1].clientId);
+  assert.equal(received[1].event, 'run');
 });

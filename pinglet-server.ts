@@ -52,7 +52,7 @@ const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 
 function getFilePath(dataDir: string, packageName: string): string {
-  const safe = sanitizePackageName(packageName).replace(/[\/]/g, '_').slice(0, 96);
+  const safe = sanitizePackageName(packageName).replace(/\//g, '+').slice(0, 96);
   return join(dataDir, `${safe}.ndjson`);
 }
 
@@ -190,7 +190,12 @@ function storePing(dataDir: string, data: Record<string, unknown>): StoredPing |
 }
 
 function loadStats(dataDir: string, pkg: string) {
-  const path = getFilePath(dataDir, pkg);
+  let path = getFilePath(dataDir, pkg);
+  // Legacy fallback: try _-encoded path (pre-v0.2.1)
+  if (!existsSync(path)) {
+    const legacy = path.replace(/\+/g, '_');
+    if (existsSync(legacy)) path = legacy;
+  }
   const empty = {
     totalPings: 0,
     uniqueUsers: 0,
@@ -231,7 +236,19 @@ function listPackages(dataDir: string) {
 
   return readdirSync(dataDir)
     .filter((file) => file.endsWith('.ndjson'))
-    .map((file) => file.slice(0, -'.ndjson'.length))
+    .map((file) => {
+      const name = file.slice(0, -'.ndjson'.length);
+      // +-encoding (v0.2.1+): unambiguous, replace all + → /
+      if (name.includes('+')) return name.replace(/\+/g, '/');
+      // Legacy _-encoding (pre-v0.2.1): first _ after @ is the /
+      if (name.startsWith('@')) {
+        const underscore = name.indexOf('_');
+        if (underscore > 1) {
+          return name.slice(0, underscore) + '/' + name.slice(underscore + 1);
+        }
+      }
+      return name;
+    })
     .sort();
 }
 
@@ -361,7 +378,7 @@ export function createPingletServer(options: PingletServerOptions = {}) {
     }
 
     if (req.method === 'GET' && url.pathname === '/health') {
-      sendJson(res, 200, { ok: true, version: '0.2.0' });
+      sendJson(res, 200, { ok: true, version: '0.2.1' });
       return;
     }
 

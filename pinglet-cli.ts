@@ -63,10 +63,15 @@ function readArg(args: string[], name: string): string | undefined {
 
 function parseArgs(args: string[]): CliOptions {
   const cmd = args[0]?.startsWith('-') ? undefined : args[0];
+  // Commands that accept a positional <pkg> arg after the command name
+  const pkgCommands = new Set(['show', 'stats', 'snippet']);
+  const positionalPkg = cmd && pkgCommands.has(cmd) ? args[1] : undefined;
   return {
     command: cmd,
     url: readArg(args, '--url') ?? process.env.PINGLET_SERVER_URL,
-    pkg: readArg(args, '--pkg') ?? process.env.PINGLET_PACKAGE ?? (cmd && !COMMANDS.has(cmd) ? cmd : undefined),
+    pkg: readArg(args, '--pkg') ?? process.env.PINGLET_PACKAGE
+      ?? (cmd && !COMMANDS.has(cmd) ? cmd : undefined)
+      ?? positionalPkg,
     packageVersion: readArg(args, '--package-version') ?? process.env.PINGLET_PACKAGE_VERSION,
     user: readArg(args, '--user') ?? process.env.PINGLET_ADMIN_USER ?? 'admin',
     password: readArg(args, '--password') ?? process.env.PINGLET_ADMIN_PASSWORD,
@@ -232,12 +237,13 @@ function printSnippet(opts: CliOptions): void {
   const serverUrl = normalizeUrl(requireOption(opts.url ?? config?.serverUrl, 'Missing server URL. Run: pinglet login --url <url>'));
   const pkg = requireOption(opts.pkg, 'Missing package name. Usage: pinglet snippet <name>');
   const version = opts.packageVersion ?? '1.0.0';
-  console.log(`npm install pinglet\n`);
-  console.log(`import { Pinglet } from 'pinglet';\n
+  console.log(`npm install @black-knight.dev/pinglet\n`);
+  console.log(`import { Pinglet } from '@black-knight.dev/pinglet';\n
 const analytics = new Pinglet({
   packageName: '${pkg}',
   packageVersion: '${version}',
   endpoint: '${serverUrl}/ping',
+  silent: true,
 });
 
 await analytics.track('run');

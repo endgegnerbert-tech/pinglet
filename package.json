@@ -1,6 +1,6 @@
 {
   "name": "@black-knight.dev/pinglet",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Anonymous runtime analytics for npm packages — real usage, not download noise",
   "type": "module",
   "main": "dist/pinglet.js",
