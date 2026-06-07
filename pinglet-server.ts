@@ -378,7 +378,7 @@ export function createPingletServer(options: PingletServerOptions = {}) {
     }
 
     if (req.method === 'GET' && url.pathname === '/health') {
-      sendJson(res, 200, { ok: true, version: '0.2.1' });
+      sendJson(res, 200, { ok: true, version: '0.2.2' });
       return;
     }
 

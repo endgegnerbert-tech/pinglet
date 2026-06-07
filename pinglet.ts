@@ -24,7 +24,7 @@ import { join } from 'node:path';
 
 import { sanitizePackageName, sanitizeProperties } from './lib/utils.js';
 
-const PINGLET_VERSION = '0.2.1';
+const PINGLET_VERSION = '0.2.2';
 const DEFAULT_TIMEOUT_MS = 1_500;
 const NOTIFIED_FILENAME = '.notified';
 

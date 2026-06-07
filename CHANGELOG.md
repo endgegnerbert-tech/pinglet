@@ -1,6 +1,16 @@
 # Changelog
 
-## 0.2.1 (2026-06-07)
+## 0.2.2 (2026-06-07)
+
+### Fixed
+- **Docs: `npx pinglet` → `pinglet`** — All docs now use the correct command.
+  The package is scoped so `npx pinglet` never worked. Added install instructions.
+- **Docs: Level 1 description updated** — Now says "all event names, no properties"
+  instead of "`run` only" across README, security.md, telemetry.md.
+- **Docs: Version badges** — Updated to 0.2.2.
+
+### Changed
+- **Version** — 0.2.1 → 0.2.2 (docs-only release, no code changes) 
 
 ### Fixed
 - **Removed `socket.unref()`** — `await track()` now reliably waits for the HTTP
