@@ -32,7 +32,7 @@
 
 pinglet uses the **industry-standard opt-out model** (like Next.js, VS Code, Homebrew).
 
-- **Tracking is ON by default** at level 1 (basic: `run` events only)
+- **Tracking is ON by default** at level 1 (basic: all event names, no properties)
 - **No prompts during `npm install`** — no postinstall script
 - **One-time notice** on first `track()` call (TTY only)
 - **Opt-out overrides**: `PINGLET_OPT_OUT=1`, `DO_NOT_TRACK=1`, or `--no-telemetry`
@@ -42,8 +42,8 @@ Choose from levels:
 | Level | What | Example events |
 | --- | --- | --- |
 | 0 | Off — no telemetry | — |
-| 1 | Basic (default) | `run` only |
-| 2 | Standard | `run`, `command:build` |
+| 1 | Basic (default) | all event names, no properties |
+| 2 | Standard | event names + properties stripped |
 | 3 | Extended | + non-PII metadata like `mode` |
 
 Full documentation: [`docs/telemetry.md`](telemetry.md).

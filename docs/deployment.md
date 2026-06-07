@@ -73,8 +73,17 @@ fly deploy
 
 ### 1. Login from your machine
 
+Install the CLI:
+
 ```bash
-npx pinglet login --url https://your-app.example.com --user admin
+npm install -g @black-knight.dev/pinglet
+# or via npx: npx -p @black-knight.dev/pinglet pinglet login ...
+```
+
+Then login:
+
+```bash
+pinglet login --url https://your-app.example.com --user admin
 ```
 
 Enter the admin password once. A 30-day token is saved locally.
@@ -82,7 +91,7 @@ Enter the admin password once. A 30-day token is saved locally.
 ### 2. Check health
 
 ```bash
-npx pinglet health
+pinglet health
 ```
 
 ### 3. Add to your npm packages
@@ -96,9 +105,9 @@ Then 5 lines of code. See [`maintainer-guide.md`](maintainer-guide.md) for the f
 ### 4. Read analytics
 
 ```bash
-npx pinglet                  # status overview
-npx pinglet ls               # list packages
-npx pinglet my-cli           # show stats
+pinglet                        # status overview
+pinglet ls                     # list packages
+pinglet my-cli                 # show stats
 ```
 
 ---

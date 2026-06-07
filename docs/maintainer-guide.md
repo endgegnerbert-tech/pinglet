@@ -139,8 +139,17 @@ my-command --no-telemetry
 
 ## 5. Login once and check analytics from your terminal
 
+Install the CLI:
+
 ```bash
-npx pinglet login --url https://telemetry.example.com --user admin
+npm install -g @black-knight.dev/pinglet
+# or via npx: npx -p @black-knight.dev/pinglet pinglet login ...
+```
+
+Then login:
+
+```bash
+pinglet login --url https://telemetry.example.com --user admin
 ```
 
 Enter the admin password once. The CLI stores a 30-day token locally, not your password.
@@ -148,21 +157,21 @@ Enter the admin password once. The CLI stores a 30-day token locally, not your p
 Then:
 
 ```bash
-npx pinglet packages
-npx pinglet stats --pkg my-cli
+pinglet packages
+pinglet stats --pkg my-cli
 ```
 
 You can also generate copy-paste SDK code for your package:
 
 ```bash
-npx pinglet snippet --pkg my-cli --package-version 1.0.0
+pinglet snippet --pkg my-cli --package-version 1.0.0
 ```
 
 Useful commands:
 
 ```bash
-npx pinglet status
-npx pinglet logout
+pinglet status
+pinglet logout
 ```
 
 You will see:
@@ -191,8 +200,10 @@ PINGLET_ADMIN_PASSWORD=<long-random-password>
 6. Login once:
 
 ```bash
-npx pinglet login --url https://your-app.up.railway.app --user admin
+pinglet login --url https://your-app.up.railway.app --user admin
 ```
+
+   (Install the CLI first: `npm install -g @black-knight.dev/pinglet`)
 
 7. Put the Railway URL into your package as the `endpoint` with `/ping` appended.
 

@@ -76,8 +76,17 @@ Expected:
 
 ## 6. Login once from your machine
 
+First install the pinglet CLI:
+
 ```bash
-npx pinglet login --url https://your-app.up.railway.app --user admin
+npm install -g @black-knight.dev/pinglet
+# or via npx: npx -p @black-knight.dev/pinglet pinglet login ...
+```
+
+Then login:
+
+```bash
+pinglet login --url https://your-app.up.railway.app --user admin
 ```
 
 Paste the admin password when asked.
@@ -95,7 +104,7 @@ It does **not** store your admin password.
 Get a copy-paste snippet:
 
 ```bash
-npx pinglet snippet --pkg my-cli --package-version 1.0.0
+pinglet snippet --pkg my-cli --package-version 1.0.0
 ```
 
 Then install and add it:
@@ -120,8 +129,8 @@ await analytics.track('command:build');
 ## 8. Read analytics
 
 ```bash
-npx pinglet packages
-npx pinglet stats --pkg my-cli
+pinglet packages
+pinglet stats --pkg my-cli
 ```
 
 You will see:

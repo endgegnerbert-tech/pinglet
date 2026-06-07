@@ -12,9 +12,9 @@ When someone installs a package that uses pinglet, runtime pings are sent automa
 
 | Level | Events tracked |
 |-------|----------------|
-| 1 (default) | `run` only |
-| 2 | `run` + event names (e.g. `command:build`) |
-| 3 | `run` + event names + non-PII metadata |
+| 1 (default) | all event names (no properties) |
+| 2 | event names + properties stripped |
+| 3 | event names + non-PII metadata |
 
 No prompts during `npm install`. No postinstall scripts. No config files to create.
 

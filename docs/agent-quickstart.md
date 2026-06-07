@@ -57,7 +57,7 @@ Use a terminal multiplexer like `tmux` or `screen` to keep it running after logo
 Once the server is online:
 
 ```bash
-npx pinglet login --url https://your-server.example.com --user admin
+pinglet login --url https://your-server.example.com --user admin
 ```
 
 Ask the human for the admin password. Never ask them to type it in plain view.
@@ -65,10 +65,10 @@ Ask the human for the admin password. Never ask them to type it in plain view.
 After login, the agent can read analytics without the password:
 
 ```bash
-npx pinglet                # status overview
-npx pinglet ls             # list tracked packages
-npx pinglet my-package     # stats for a package
-npx pinglet health         # server health check
+pinglet                    # status overview
+pinglet ls                 # list tracked packages
+pinglet my-package          # stats for a package
+pinglet health              # server health check
 ```
 
 The login token is stored in `~/.config/pinglet/config.json` (mode 0o600).
@@ -111,7 +111,7 @@ await analytics.track('tool:call');
 If the agent is logged in:
 
 ```bash
-npx pinglet snippet @scope/package-name
+pinglet snippet @scope/package-name
 ```
 
 ---
@@ -136,9 +136,9 @@ npx pinglet snippet @scope/package-name
 ## 5. Read analytics
 
 ```bash
-npx pinglet                                  # status: server + packages
-npx pinglet @scope/package-name              # detailed stats
-npx pinglet @scope/package-name --json       # raw JSON
+pinglet                                      # status: server + packages
+pinglet @scope/package-name                  # detailed stats
+pinglet @scope/package-name --json           # raw JSON
 ```
 
 Analytics available:
@@ -155,7 +155,7 @@ Analytics available:
 
 pinglet uses the **opt-out model** (like Next.js, VS Code, Homebrew):
 
-- Tracking is **ON by default** at level 1 (basic: `run` events only)
+- Tracking is **ON by default** at level 1 (basic: all event names, no properties)
 - **No prompts during `npm install`** — no postinstall script
 - **One-time notice** on first run (TTY only)
 - Users can opt out anytime: `DO_NOT_TRACK=1`, `PINGLET_OPT_OUT=1`, `--no-telemetry`
@@ -172,7 +172,7 @@ For full documentation: [`docs/telemetry.md`](telemetry.md)
 curl https://your-server.example.com/health
 
 # Check if logged in
-npx pinglet health
+pinglet health
 
 # Test ping manually
 curl -X POST https://your-server.example.com/ping \
@@ -180,7 +180,7 @@ curl -X POST https://your-server.example.com/ping \
   -d '{"pkg":"test","pkgVersion":"1.0","event":"run","clientId":"test","platform":"linux","ci":false}'
 
 # Check if package appears
-npx pinglet ls
+pinglet ls
 ```
 
 ### Deploy failed?

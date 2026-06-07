@@ -5,7 +5,7 @@
 <p align="center"><strong>Anonymous runtime analytics for npm packages.</strong><br>Real usage — not download noise.</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.0-blue" alt="version">
+  <img src="https://img.shields.io/badge/version-0.2.1-blue" alt="version">
   <img src="https://img.shields.io/badge/tests-15%2F15-brightgreen" alt="tests">
   <img src="https://img.shields.io/badge/dependencies-0-brightgreen" alt="deps">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
@@ -52,7 +52,11 @@ Full guide: [`docs/deploy-railway.md`](docs/deploy-railway.md).
 ### 2. Login once
 
 ```bash
-npx pinglet login --url https://your-server.example.com --user admin
+# Install the CLI (globally or via npx)
+npm install -g @black-knight.dev/pinglet
+# or: npx -p @black-knight.dev/pinglet pinglet login ...
+
+pinglet login --url https://your-server.example.com --user admin
 ```
 
 Stores a 30-day token — **not** your password.
@@ -83,8 +87,8 @@ That's it. Your package now sends anonymous runtime pings.
 ## 📊 What you see
 
 ```bash
-npx pinglet                   # quick overview
-npx pinglet my-package        # detailed stats
+pinglet                        # quick overview
+pinglet my-package             # detailed stats
 ```
 
 ```json
@@ -103,6 +107,9 @@ npx pinglet my-package        # detailed stats
 ### CLI cheat sheet
 
 ```bash
+# Install: npm install -g @black-knight.dev/pinglet
+# Or via npx: npx -p @black-knight.dev/pinglet pinglet <command>
+
 pinglet                         # status overview
 pinglet <pkg>                   # stats for package
 pinglet ls                      # list all tracked packages
@@ -132,7 +139,7 @@ Full privacy model: [`docs/security.md`](docs/security.md).
 
 pinglet uses the **industry-standard opt-out model** (like Next.js, VS Code, Homebrew):
 
-- **Tracking is ON by default** at level 1 (basic: `run` events only)
+- **Tracking is ON by default** at level 1 (basic: all event names, no properties)
 - **No prompts during `npm install`** — no postinstall script
 - **Documented in every README** — open source transparency
 - **Inspect before sending**: `PINGLET_DEBUG=1` shows the JSON payload without transmitting
